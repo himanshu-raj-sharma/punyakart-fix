@@ -220,6 +220,10 @@ def validate_archive(archive, expected):
             "META_CAPI_ACCESS_TOKEN", "META_CAPI_TEST_EVENT_CODE", "meta_conversion_outbox",
             "/api/admin/meta-capi/status", "metaCapiConfigured", "1112592431188643",
         )), "Built server is missing required CAPI integration markers.")
+        require("frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://www.googletagmanager.com https://www.facebook.com" in server,
+                "Built server is missing the exact observed Facebook frame source.")
+        require("https://*.facebook.com" not in server,
+                "Built server must not permit a broad Facebook frame wildcard.")
         require(all(marker in server for marker in (
             "trafficAttribution", "sanitizeTrafficAttribution", "storedTrafficAttribution",
             "resolveRecordedDonationSource", "toAdminDonation",

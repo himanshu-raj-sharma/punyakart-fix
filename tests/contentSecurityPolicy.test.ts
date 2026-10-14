@@ -66,8 +66,16 @@ test('script directives allow exact Clarity and Meta parameter-builder scripts w
     "font-src 'self' data: https://fonts.gstatic.com",
     `script-src ${originalScripts.split(' https://www.googletagmanager.com')[0]} ${clarityScriptOrigin} ${clarityNestedScriptOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://www.google.com ${metaSetupScript} ${metaParamBuilderScripts.join(' ')}`,
     `script-src-elem ${originalScripts.split(' https://www.googletagmanager.com')[0]} ${clarityScriptOrigin} ${clarityNestedScriptOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://www.google.com ${metaSetupScript} ${metaParamBuilderScripts.join(' ')}`,
-    "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://www.googletagmanager.com",
+    "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://www.googletagmanager.com https://www.facebook.com",
   ]);
+});
+
+test('frame-src permits only the observed Facebook frame origin without a wildcard', () => {
+  const frameSources = directives.find(([name]) => name === 'frame-src')!.slice(1);
+  assert.equal(directives.filter(([name]) => name === 'frame-src').length, 1);
+  assert.ok(frameSources.includes('https://www.facebook.com'));
+  assert.ok(!frameSources.includes('https://*.facebook.com'));
+  assert.ok(!frameSources.includes('https://facebook.com'));
 });
 
 test('Clarity script and privacy disclosure are present', async () => {
