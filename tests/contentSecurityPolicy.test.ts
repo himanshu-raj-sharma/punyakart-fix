@@ -63,7 +63,7 @@ test('script directives add only Meta setup bootstrap and other directives remai
 test('Clarity script and privacy disclosure are present', async () => {
   const html = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
   assert.match(html, /https:\/\/www\.clarity\.ms\/tag\/"\+i/);
-  assert.match(html, /yw0s5g1k8k/);
+  assert.match(html, /yxk5cp47bk/);
   const legalSource = await readFile(new URL('../frontend/src/pages/LegalPage.tsx', import.meta.url), 'utf8');
   assert.match(legalSource, /Microsoft Clarity/);
 });
