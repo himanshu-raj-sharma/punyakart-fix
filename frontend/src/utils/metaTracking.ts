@@ -24,6 +24,23 @@ const OPT_IN_PIXEL_ID = '1112592431188643';
 const MAX_IDENTIFIER_LENGTH = 255;
 const MAX_SOURCE_URL_LENGTH = 2048;
 
+/** Native Meta tracking is allowed only on the two canonical production hosts. */
+export function isAllowedMetaBrowserHost(hostname: unknown): boolean {
+  return typeof hostname === 'string' &&
+    (hostname.toLowerCase() === 'punyakart.com' || hostname.toLowerCase() === 'www.punyakart.com');
+}
+
+function browserTrackingHostAllowed(): boolean {
+  try {
+    // The helper is also unit-tested in a non-browser process. Real browser
+    // sessions always have window, so preview hosts are explicitly rejected.
+    if (typeof window === 'undefined') return true;
+    return isAllowedMetaBrowserHost(window.location.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function readIdentifier(cookie: unknown, name: '_fbp' | '_fbc'): string | undefined {
   if (typeof cookie !== 'string' || cookie.length > 32768) return undefined;
   const entry = cookie.split(';').find((part) => part.trim().startsWith(`${name}=`));
@@ -92,6 +109,7 @@ export function dispatchMetaPurchase(
   fbq: MetaPixel | undefined,
   trackedDonationIds: Set<string>,
 ): boolean {
+  if (!browserTrackingHostAllowed()) return false;
   const amount = Number(donation?.amount);
   const donationId = typeof donation?.id === 'string' && donation.id.trim() ? donation.id : '';
   if (!Number.isFinite(amount) || amount <= 0 || typeof fbq !== 'function') return false;
@@ -130,6 +148,7 @@ export function dispatchMetaInitiateCheckout(
   consent: boolean,
   fbq: MetaPixel | undefined,
 ): boolean {
+  if (!browserTrackingHostAllowed()) return false;
   const amount = Number(amountInput);
   if (consent !== true || typeof fbq !== 'function' ||
       typeof donationId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(donationId) ||
