@@ -85,6 +85,11 @@ test('server captures only explicit consent and allowlisted attribution, with a 
   assert.deepEqual(result, { consent: true, consentedAt: new Date(NOW).toISOString(), sourceUrl: `${SITE}/donate`, fbp, clientUserAgent: 'Original browser' });
   const withIp = captureMetaAttribution({ consent: true }, SITE, 'Original browser', new Date(NOW), '203.0.113.42');
   assert.equal(withIp?.clientIpAddress, '203.0.113.42');
+  const mappedIp = captureMetaAttribution({ consent: true }, SITE, 'Original browser', new Date(NOW), '::ffff:203.0.113.42');
+  assert.equal(mappedIp?.clientIpAddress, '203.0.113.42', 'normalize IPv4-mapped IPv6 proxy values');
+  for (const invalidIp of ['999.999.999.999', 'not-an-ip', '203.0.113.42/24', '::ffff:999.1.1.1']) {
+    assert.equal(captureMetaAttribution({ consent: true }, SITE, 'Original browser', new Date(NOW), invalidIp)?.clientIpAddress, undefined);
+  }
   assert.equal(captureMetaAttribution({ consent: true, clientIpAddress: '198.51.100.10' }, SITE, 'Original browser', new Date(NOW))?.clientIpAddress, undefined);
   for (const input of [undefined, {}, { consent: false }, { consent: 'true' }, { consent: 1 }]) {
     assert.equal(captureMetaAttribution(input, SITE, 'browser', new Date(NOW)), undefined);
