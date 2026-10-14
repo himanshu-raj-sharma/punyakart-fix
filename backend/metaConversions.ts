@@ -158,9 +158,20 @@ function preparePurchase(donation: StoredDonation, payment: MetaCapturedPayment,
   if (attribution.fbp !== undefined && !validCookie(attribution.fbp, false, now)) return null;
   if (attribution.fbc !== undefined && !validCookie(attribution.fbc, true, now)) return null;
   const rawAgent = attribution.clientUserAgent;
-  const agent = typeof rawAgent === 'string' && !!rawAgent.trim() &&
-    rawAgent.length <= 512 && !/[\x00-\x1f\x7f]/.test(rawAgent) ? rawAgent : undefined;
-  const clientIpAddress = normalizeClientIpAddress(attribution.clientIpAddress);
+if (
+  rawAgent !== undefined &&
+  (
+    typeof rawAgent !== 'string' ||
+    !rawAgent.trim() ||
+    rawAgent.length > 512 ||
+    /[\x00-\x1f\x7f]/.test(rawAgent)
+  )
+) {
+  return null;
+}
+
+const agent = typeof rawAgent === 'string' ? rawAgent : undefined;
+const clientIpAddress = normalizeClientIpAddress(attribution.clientIpAddress);
   // Meta flags events that include a user agent without an IP. Include browser network
   // context only as a valid pair; missing optional attribution must not reject a real Purchase.
   const browserNetworkData = agent && clientIpAddress

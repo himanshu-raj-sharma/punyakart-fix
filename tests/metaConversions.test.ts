@@ -270,12 +270,13 @@ test('optional attribution is validated and sent unchanged; test code is top-lev
   const fbp = `fb.1.${NOW - 60_000}.123456789`;
   const fbc = `fb.1.${NOW - 60_000}.ValidClick_ID-123`;
   const clientUserAgent = 'Mozilla/5.0 (Unit Test; original agent)';
+  const clientIpAddress = '203.0.113.10';
   const f = fixture({ env: { ...env, META_CAPI_TEST_EVENT_CODE: 'TEST123', META_GRAPH_API_VERSION: 'v23.0', META_CAPI_ENDPOINT: 'https://evil.example' } });
-  await f.service.enqueuePurchase(donation({ metaAttribution: { ...attribution, fbp, fbc, clientUserAgent } }), payment);
+  await f.service.enqueuePurchase(donation({ metaAttribution: { ...attribution, fbp, fbc, clientUserAgent, clientIpAddress } }), payment);
   await f.service.flush();
   const body = JSON.parse(f.calls[0].init.body as string);
   assert.deepEqual(body, {
-    data: [{ ...f.outbox.first().event, user_data: { em: [sha('donor@example.com')], ph: [sha('919876543210')], fbp, fbc, client_user_agent: clientUserAgent } }],
+    data: [{ ...f.outbox.first().event, user_data: { em: [sha('donor@example.com')], ph: [sha('919876543210')], fbp, fbc, client_user_agent: clientUserAgent, client_ip_address: clientIpAddress } }],
     test_event_code: 'TEST123',
   });
   assert.equal(f.calls[0].url, `https://graph.facebook.com/v23.0/${META_PIXEL_ID}/events`);
