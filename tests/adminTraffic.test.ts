@@ -168,6 +168,20 @@ test('traffic and search filters intersect with existing 80G filters without cha
   assert.deepEqual(rows, before);
 });
 
+test('donor table displays the actual Razorpay payment reference ahead of the provisional internal TXN id', () => {
+  const html = renderToStaticMarkup(React.createElement(DonorDetailsTab, {
+    donations: [donation({
+      id: 'payment-reference-display-test',
+      transactionId: 'TXN_INTERNAL_REFERENCE',
+      paymentRef: 'pay_actual_reference',
+      status: 'verified',
+      receiptNumber: 'PKF-TEST-0001',
+    })],
+  }));
+  assert.match(html, /pay_actual_reference/);
+  assert.doesNotMatch(html, /TXN_INTERNAL_REFERENCE/);
+});
+
 test('empty donor table spans both source columns and disables export', () => {
   const html = renderToStaticMarkup(React.createElement(DonorDetailsTab, { donations: [] }));
   assert.match(html, /colSpan="12"/);
