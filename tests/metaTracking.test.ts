@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { DonationModal } from '../frontend/src/components/DonationModal';
 import { LegalPage } from '../frontend/src/pages/LegalPage';
 import {
-  collectMetaTrackingPayload, createMetaTrackingPayload, dispatchMetaInitiateCheckout, dispatchMetaPurchase,
+  collectMetaTrackingPayload, createMetaTrackingPayload, dispatchMetaInitiateCheckout, dispatchMetaPurchase, isAllowedMetaBrowserHost,
   type VerifiedMetaDonation,
 } from '../frontend/src/utils/metaTracking';
 
@@ -121,6 +121,24 @@ test('SSR and blocked browser APIs safely omit unavailable attribution', () => {
   }, () => {
     assert.deepEqual(collectMetaTrackingPayload(true), { consent: true, sourceUrl: 'https://example.invalid/give' });
   });
+});
+
+test('native Meta event dispatch is restricted to canonical production hosts', () => {
+  assert.equal(isAllowedMetaBrowserHost('punyakart.com'), true);
+  assert.equal(isAllowedMetaBrowserHost('www.punyakart.com'), true);
+  assert.equal(isAllowedMetaBrowserHost('punyakart-nrmzmlr3y-gurillawarfare.vercel.app'), false);
+  assert.equal(isAllowedMetaBrowserHost('evilpunyakart.com'), false);
+  assert.equal(isAllowedMetaBrowserHost(''), false);
+
+  const calls: unknown[][] = [];
+  const fbq = (...args: unknown[]) => { calls.push(args); };
+  withGlobals({
+    window: { value: { location: { hostname: 'punyakart-nrmzmlr3y-gurillawarfare.vercel.app' } } },
+  }, () => {
+    assert.equal(dispatchMetaPurchase({ id: 'preview-donation', amount: 500, metaTrackingAllowed: true }, fbq, new Set()), false);
+    assert.equal(dispatchMetaInitiateCheckout('preview-donation', 500, true, fbq), false);
+  });
+  assert.deepEqual(calls, [], 'preview deployment must not emit native Meta conversion events');
 });
 
 test('server-approved Purchase targets both Pixels with the exact same donation event ID', () => {
