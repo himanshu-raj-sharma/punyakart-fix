@@ -219,6 +219,40 @@ test('Purchase uses the browser event ID, verified time, hashes, and only allowl
   assert.doesNotMatch(JSON.stringify(await f.service.getDiagnostics()), /DON-browser|fake-unit-test-token|donor@|PRIVATE/);
 });
 
+test('Meta CAPI includes client IP and user agent only as a validated pair', async () => {
+  const paired = fixture();
+  await paired.service.enqueuePurchase(donation({
+    metaAttribution: {
+      ...attribution,
+      clientUserAgent: 'Synthetic browser agent',
+      clientIpAddress: '::ffff:203.0.113.10',
+    },
+  }), payment);
+  const pairedUserData = paired.outbox.first().event.user_data;
+  assert.equal(pairedUserData.client_ip_address, '203.0.113.10');
+  assert.equal(pairedUserData.client_user_agent, 'Synthetic browser agent');
+
+  const missingIp = fixture();
+  await missingIp.service.enqueuePurchase(donation({
+    metaAttribution: { ...attribution, clientUserAgent: 'Synthetic browser agent' },
+  }), payment);
+  const missingIpUserData = missingIp.outbox.first().event.user_data;
+  assert.ok(!('client_ip_address' in missingIpUserData));
+  assert.ok(!('client_user_agent' in missingIpUserData));
+
+  const invalidIp = fixture();
+  await invalidIp.service.enqueuePurchase(donation({
+    metaAttribution: {
+      ...attribution,
+      clientUserAgent: 'Synthetic browser agent',
+      clientIpAddress: '999.999.999.999',
+    },
+  }), payment);
+  const invalidIpUserData = invalidIp.outbox.first().event.user_data;
+  assert.ok(!('client_ip_address' in invalidIpUserData));
+  assert.ok(!('client_user_agent' in invalidIpUserData));
+});
+
 test('Indian phone variants normalize to country-code digits; invalid contacts never pass through raw', async () => {
   for (const phone of ['9876543210', '09876543210', '919876543210', '+91-98765-43210', '0091 98765 43210']) {
     const f = fixture();
