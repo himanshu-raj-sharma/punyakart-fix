@@ -155,7 +155,7 @@ export const CauseContributionSection: React.FC<CauseContributionSectionProps> =
     );
     setStepperValues((prev) => ({ ...prev, [card.id]: change.nextStepperQuantity }));
     if (change.target === 'cart') {
-      onUpdateCartQty(toProductItem(card), delta);
+      onUpdateCartQty(toProductItem(card), change.delta);
     }
   };
 
