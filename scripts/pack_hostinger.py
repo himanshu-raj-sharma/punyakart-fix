@@ -43,6 +43,9 @@ PRIVATE_NAME = re.compile(
 GATEWAYS = (
     "https://md-eecad2978f7a43f5b7838c919258e6de.ecs.us-east-2.on.aws",
     "https://bded8a3c6ae-1-1053047382554.us-central1.run.app",
+    "https://mpc-prod-28-1053047382554.us-central1.run.app",
+    "https://mpc-prod-21-1053047382554.us-central1.run.app",
+    "https://5z-2b6b7616f94640c2840d1841e1ac24c3.ecs.us-east-1.on.aws",
 )
 PIXELS = ("922745934005234", "1112592431188643")
 
@@ -190,6 +193,10 @@ def validate_archive(archive, expected):
             "frontend/public/navratri-hero.jpg", "dist/navratri-hero.jpg", "tests/navratriPage.test.ts",
             "tests/navratriDiscovery.test.ts", "tests/navratriIntegration.test.ts",
             "tests/metaConversions.test.ts", "tests/metaTracking.test.ts", "tests/metaPaymentFlow.test.ts",
+            "frontend/src/pages/LegacyCrowdFundingPage.tsx",
+            "frontend/src/components/campaign/CauseContributionSection.tsx",
+            "frontend/src/pages/TuesdayCampaignPage.tsx",
+            "frontend/src/utils/campaignQuantity.ts", "tests/campaignQuantity.test.ts",
             "dist/index.html", "dist/server.cjs", "dist/migrate.cjs",
         }
         require(required <= set(names), "Archive is missing required app/build files.")
@@ -234,6 +241,13 @@ def validate_archive(archive, expected):
             require(bool(sources) and all(
                 "https://www.facebook.com/signals/iwl.js" in values for values in sources
             ), f"Built server {directive} is missing the exact Meta IWL script source.")
+            for exact_script in (
+                "https://scripts.clarity.ms",
+                "https://cdn.jsdelivr.net/npm/meta-capi-param-builder-clientjs/dist/clientParamBuilder.bundle.js",
+                "https://unpkg.com/meta-capi-param-builder-clientjs/dist/clientParamBuilder.bundle.js",
+            ):
+                require(all(exact_script in values for values in sources),
+                        f"Built server {directive} is missing a required exact telemetry script source.")
         html = packed.read("dist/index.html").decode("utf-8")
         for pixel in PIXELS:
             require(re.search(r"fbq\(\s*['\"]init['\"]\s*,\s*['\"]" + pixel
