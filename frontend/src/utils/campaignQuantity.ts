@@ -48,3 +48,13 @@ export function resolveCampaignQuantityChange(
     nextStepperQuantity: Math.max(1, stepperQuantity + safeDelta),
   };
 }
+
+/** Adjust a live selected quantity, removing it when the count reaches zero. */
+export function nextCampaignCartQuantity(currentQuantity: number, delta: number): number {
+  const current =
+    Number.isSafeInteger(currentQuantity) && currentQuantity > 0
+      ? currentQuantity
+      : 0;
+  const safeDelta = Number.isSafeInteger(delta) ? delta : 0;
+  return Math.max(0, current + safeDelta);
+}

@@ -36,6 +36,7 @@ import { translations } from '../data/content';
 import { useRecentDonations } from '../hooks/useRecentDonations';
 import { usePublicCampaign } from '../hooks/usePublicCampaign';
 import { campaignDonationAvailable, campaignAvailabilityMessage } from '../utils/publicCampaignPolling';
+import { nextCampaignCartQuantity } from '../utils/campaignQuantity.js';
 import { donorFeedMessage, formatRelativeTime } from '../utils/publicDonations';
 import { navigate } from '../navigation';
 import { EveryRupeeMattersBanner } from '../components/EveryRupeeMattersBanner';
@@ -173,6 +174,7 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
 
   // 2x2 counter card states
   const [cardCounts, setCardCounts] = useState<Record<number, number>>({ 1000: 0, 2000: 0, 3000: 0, 5000: 0 });
+  const [hasEditedImpactCardQuantities, setHasEditedImpactCardQuantities] = useState(false);
 
   // Rescue stories mobile slider ref & active index + auto sliding
   const storySliderRef = useRef<HTMLDivElement>(null);
@@ -266,6 +268,7 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
     const cardTotal = calcCardTotal(cardCounts);
     if (cardTotal > 0) return cardTotal;
     if (selectedPreset) return selectedPreset;
+    if (hasEditedImpactCardQuantities) return 0;
     return amount || 1000;
   };
 
@@ -276,24 +279,39 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
     return `${cause?.label ?? 'Punyakart Crowd Donation'} — ₹${amt.toLocaleString('en-IN')}`;
   };
 
+  const getCauseTitleForCounts = (counts: Record<number, number>): string => {
+    const selected = impactCards
+      .filter((card) => (counts[card.amt] || 0) > 0)
+      .map((card) => {
+        const quantity = counts[card.amt];
+        return `${card.title}${quantity > 1 ? ` × ${quantity}` : ''} (${card.subtitle})`;
+      });
+    if (selected.length) return selected.join('; ');
+    const cause = causes.find((item) => item.id === activeCause);
+    return cause?.label ?? 'Punyakart Crowd Donation';
+  };
+
   const handleQuantityChange = (amt: number, delta: number) => {
     setCustomAmount('');
     setSelectedPreset(null);
     setAmountError(null);
-    setCardCounts((prev) => {
-      const current = prev[amt] || 0;
-      const next = Math.max(0, current + delta);
-      const updated = { ...prev, [amt]: next };
-      const total = calcCardTotal(updated);
-      onAmountAndCauseTitleChange(total, getCauseTitle(total));
-      return updated;
-    });
+    setHasEditedImpactCardQuantities(true);
+
+    const updated = {
+      ...cardCounts,
+      [amt]: nextCampaignCartQuantity(cardCounts[amt] || 0, delta),
+    };
+    setCardCounts(updated);
+
+    const total = calcCardTotal(updated);
+    onAmountAndCauseTitleChange(total, getCauseTitleForCounts(updated));
   };
 
   const handleSelectImpactCard = (amt: number) => {
     setCustomAmount('');
     setSelectedPreset(null);
     setAmountError(null);
+    setHasEditedImpactCardQuantities(true);
     setCardCounts({ 1000: 0, 2000: 0, 3000: 0, 5000: 0, [amt]: 1 });
     onAmountAndCauseTitleChange(amt, getCauseTitle(amt));
   };
@@ -302,6 +320,7 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
     const val = e.target.value;
     setCustomAmount(val);
     setSelectedPreset(null);
+    setHasEditedImpactCardQuantities(false);
     setCardCounts({ 1000: 0, 2000: 0, 3000: 0, 5000: 0 });
     setAmountError(null);
     if (val.trim()) {
@@ -312,6 +331,7 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
 
   const handleSelectPresetChip = (amt: number) => {
     setCardCounts({ 1000: 0, 2000: 0, 3000: 0, 5000: 0 });
+    setHasEditedImpactCardQuantities(false);
     setCustomAmount(amt.toString());
     setSelectedPreset(amt);
     setAmountError(null);
@@ -526,7 +546,8 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
                       <button
                         type="button"
                         onClick={() => handleQuantityChange(card.amt, -1)}
-                        className="flex w-1/4 items-center justify-center border-r border-white/35 text-xl font-black hover:bg-[#E05300] active:scale-95 transition-all cursor-pointer"
+                        disabled={qty === 0}
+                        className="flex w-1/4 items-center justify-center border-r border-white/35 text-xl font-black hover:bg-[#E05300] active:scale-95 transition-all cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-[#FF6B00]"
                         aria-label={`Decrease ${card.title}`}
                       >
                         <Minus className="w-4 h-4 stroke-[2.5]" />
@@ -534,10 +555,20 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
                       <button
                         type="button"
                         onClick={() => handleSelectImpactCard(card.amt)}
-                        className="flex min-w-0 flex-1 items-center justify-center px-2 text-sm font-black tabular-nums hover:bg-[#E05300] active:scale-95 transition-all cursor-pointer"
-                        aria-label={`Add ${card.title} worth ₹${card.amt.toLocaleString('en-IN')}`}
+                        disabled={qty > 0}
+                        className="flex min-w-0 flex-1 items-center justify-center px-2 text-sm font-black tabular-nums hover:bg-[#E05300] active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-[#FF6B00]"
+                        aria-label={qty > 0
+                          ? `${card.title} selected, quantity ${qty}, total ₹${(card.amt * qty).toLocaleString('en-IN')}`
+                          : `Add ${card.title} worth ₹${card.amt.toLocaleString('en-IN')}`}
                       >
-                        ₹{card.amt.toLocaleString('en-IN')}
+                        {qty > 0 ? (
+                          <span className="flex flex-col items-center leading-tight">
+                            <span>Added ({qty})</span>
+                            <span className="text-[10px] font-bold">₹{(card.amt * qty).toLocaleString('en-IN')}</span>
+                          </span>
+                        ) : (
+                          `₹${card.amt.toLocaleString('en-IN')}`
+                        )}
                       </button>
                       <button
                         type="button"
