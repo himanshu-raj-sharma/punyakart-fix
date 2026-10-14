@@ -65,7 +65,12 @@ test('all campaign product cards use the unified orange minus-price-plus control
     assert.match(source, /bg-\[#FF6B00\] text-white shadow-2xs/);
     assert.match(source, /border-r border-white\/35/);
     assert.match(source, /border-l border-white\/35/);
-    assert.match(source, /aria-label=\{`Add .* worth ₹/);
+    assert.match(
+      source,
+      /aria-label=\{\s*(?:`Add |(?:qty|inCartQty)\s*>\s*0)/,
+      'the center control must label its add action or announce the selected quantity',
+    );
+    assert.match(source, /Add .* worth ₹/);
   }
 });
 
