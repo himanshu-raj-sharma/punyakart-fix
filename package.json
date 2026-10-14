@@ -1,0 +1,67 @@
+{
+  "name": "punyakart-foundation",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development tsx server.ts",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && esbuild backend/db/migrate.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist/migrate.cjs",
+    "start": "node server.cjs",
+    "preview": "vite preview",
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit",
+    "test:backend": "tsx tests/backend.test.ts",
+    "test:csp": "tsx --test tests/contentSecurityPolicy.test.ts",
+    "test:donations": "tsx --test tests/donationAmounts.test.ts",
+    "test:meta": "tsx --test tests/metaConversions.test.ts tests/metaTracking.test.ts tests/metaPaymentFlow.test.ts",
+    "test:traffic": "tsx --test tests/trafficAttribution.test.ts tests/adminTraffic.test.ts tests/trafficFlow.test.ts",
+    "test:navratri": "tsx --test tests/navratriPage.test.ts tests/navratriDiscovery.test.ts tests/navratriIntegration.test.ts",
+    "migrate": "node dist/migrate.cjs",
+    "migrate:dev": "tsx backend/db/migrate.ts",
+    "pack": "bash scripts/pack-hostinger.sh",
+    "pack:hostinger": "python scripts/pack_hostinger.py"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^5.0.4",
+    "canvas-confetti": "^1.9.4",
+    "cors": "^2.8.6",
+    "cross-env": "^10.1.0",
+    "dotenv": "^17.2.3",
+    "esbuild": "0.25.12",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.1",
+    "lucide-react": "^0.546.0",
+    "mongodb": "^7.7.0",
+    "motion": "^12.43.0",
+    "nodemailer": "^10.0.13",
+    "pdfkit": "^0.20.2",
+    "pino": "^10.3.1",
+    "proper-lockfile": "^4.1.2",
+    "razorpay": "^2.9.8",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "tailwindcss": "^4.1.14",
+    "vite": "^6.4.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pdfkit": "^0.17.6",
+    "@types/react": "^19.3.0",
+    "autoprefixer": "^10.5.4",
+    "cross-env": "^10.1.0",
+    "tsx": "4.21.0",
+    "typescript": "~5.8.2"
+  },
+  "overrides": {
+    "esbuild": "0.25.12"
+  }
+}

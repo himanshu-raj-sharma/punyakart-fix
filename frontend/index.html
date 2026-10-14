@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+
+    <title>
+      Punyakart Foundation | Donate for Rescued Animals in Dehradun
+    </title>
+
+    <meta
+      name="description"
+      content="Donate securely via Razorpay at punyakart.com to Punyakart Foundation. 80G tax exemption via info@punyakart.com. Shelter, feed and heal 1,187+ rescued animals in Dehradun."
+    />
+
+    <!-- =========================================================
+         FAVICONS
+         ========================================================= -->
+
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/favicon-32x32.png"
+    />
+
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/favicon-16x16.png"
+    />
+
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png"
+    />
+
+    <link
+      rel="shortcut icon"
+      href="/punyakart-logo-icon.png"
+    />
+
+    <meta name="theme-color" content="#FF6B00" />
+
+    <!-- =========================================================
+         GOOGLE FONTS
+         ========================================================= -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=Noto+Sans+Tamil:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- =========================================================
+         GOOGLE TAG MANAGER
+         Container: GTM-WRK43MWJ
+         ========================================================= -->
+
+    <script>
+      (function () {
+        var host = window.location.hostname.toLowerCase();
+        if (host !== 'punyakart.com' && host !== 'www.punyakart.com') return;
+      (function (w, d, s, l, i) {
+        w[l] = w[l] || [];
+
+        w[l].push({
+          "gtm.start": new Date().getTime(),
+          event: "gtm.js",
+        });
+
+        var f = d.getElementsByTagName(s)[0],
+          j = d.createElement(s),
+          dl = l != "dataLayer" ? "&l=" + l : "";
+
+        j.async = true;
+        j.src =
+          "https://www.googletagmanager.com/gtm.js?id=" + i + dl;
+
+        f.parentNode.insertBefore(j, f);
+      })(
+        window,
+        document,
+        "script",
+        "dataLayer",
+        "GTM-WRK43MWJ"
+      );
+      })();
+    </script>
+
+    <!-- =========================================================
+         RAZORPAY CHECKOUT
+         ========================================================= -->
+
+    <script
+      src="https://checkout.razorpay.com/v1/checkout.js"
+    ></script>
+
+    <!-- =========================================================
+         META PIXEL
+         
+         Pixel 1:
+         922745934005234
+
+         Pixel 2:
+         1112592431188643
+
+         One Meta Pixel loader is used for both pixels.
+
+         PageView is sent to both initialized pixels.
+
+         Purchase events are NOT fired here.
+         They are fired only after verified Razorpay payment
+         in DonationModal.tsx.
+         ========================================================= -->
+
+    <script>
+      (function () {
+        var host = window.location.hostname.toLowerCase();
+        if (host !== 'punyakart.com' && host !== 'www.punyakart.com') return;
+      !function(f,b,e,v,n,t,s)
+      {
+        if(f.fbq)return;
+
+        n=f.fbq=function()
+        {
+          n.callMethod
+            ? n.callMethod.apply(n,arguments)
+            : n.queue.push(arguments)
+        };
+
+        if(!f._fbq)f._fbq=n;
+
+        n.push=n;
+        n.loaded=!0;
+        n.version='2.0';
+        n.queue=[];
+
+        t=b.createElement(e);
+        t.async=!0;
+        t.src=v;
+
+        s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s)
+      }(
+        window,
+        document,
+        'script',
+        'https://connect.facebook.net/en_US/fbevents.js'
+      );
+
+      /*
+       * Initialize both Meta Pixels.
+       */
+      fbq('init', '922745934005234');
+      fbq('init', '1112592431188643');
+
+      /*
+       * Send one PageView event to both initialized pixels.
+       */
+      fbq('track', 'PageView');
+      })();
+    </script>
+
+    <!-- End Meta Pixel Code -->
+
+    <script type="text/javascript">
+    (function () {
+      var host = window.location.hostname.toLowerCase();
+      if (host !== 'punyakart.com' && host !== 'www.punyakart.com') return;
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "yw0s5g1k8k");
+    })();
+</script>
+
+  </head>
+
+  <body
+    class="bg-[#F4F7FA] text-neutral-900 antialiased selection:bg-orange-500 selection:text-white"
+  >
+    <!-- GTM noscript fallback intentionally omitted: preview hosts must not emit tracking. -->
+    <!-- Meta noscript fallbacks intentionally omitted to keep tracking production-host-only. -->
+<!-- =========================================================
+         REACT APPLICATION ROOT
+         ========================================================= -->
+
+    <div id="root"></div>
+
+    <!-- =========================================================
+         VITE / REACT ENTRY
+         ========================================================= -->
+
+    <script
+      type="module"
+      src="/src/main.tsx"
+    ></script>
+  </body>
+</html>

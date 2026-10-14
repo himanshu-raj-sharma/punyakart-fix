@@ -1,0 +1,6 @@
+{
+  "name": "Punyakart Foundation",
+  "description": "Official donation portal for Punyakart Foundation supporting 1,187+ sheltered, injured, and rescued animals with instant UPI pay and 80G tax exemption certificates.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

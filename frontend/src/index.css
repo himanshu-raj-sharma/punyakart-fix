@@ -1,0 +1,575 @@
+@import "tailwindcss";
+
+/* Dark utilities only when `.dark` is on <html> — not OS dark mode */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --public-surface: #FFF8F1;
+    --public-card: #FFFFFF;
+    --public-border: #F3DED0;
+    --public-muted-surface: #FFF1E6;
+    --bento-bg: var(--public-surface);
+    --bento-navy: #002D62;
+    --bento-orange: #FF6B00;
+    --site-header-height: 68px;
+    --mobile-donation-bar-height: 0px;
+  }
+
+  @media (min-width: 640px) {
+    :root {
+      --site-header-height: 76px;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    :root {
+      --site-header-height: 80px;
+    }
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: var(--public-surface);
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  html {
+    overflow-x: clip;
+    scroll-padding-top: calc(var(--site-header-height) + 12px);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  img, video, canvas, svg {
+    max-width: 100%;
+  }
+
+  button, a, input, select, textarea {
+    touch-action: manipulation;
+  }
+
+  input, select, textarea {
+    max-width: 100%;
+  }
+  
+  .dark body {
+    background-color: #080E1A;
+  }
+
+  /* Shared light surface for public routes. Dark admin/public variants remain explicit. */
+  .public-page {
+    background-color: var(--public-surface);
+    color: #0f172a;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .public-card {
+    background-color: var(--public-card);
+    border-color: var(--public-border);
+  }
+
+  .public-muted-surface {
+    background-color: var(--public-muted-surface);
+  }
+
+  .dark .public-page {
+    background-color: #020617;
+    color: #f8fafc;
+  }
+
+  .dark .public-card {
+    background-color: #0f172a;
+    border-color: rgba(30, 41, 59, 0.8);
+  }
+
+  .dark .public-muted-surface {
+    background-color: #1e293b;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  }
+
+  .font-script {
+    font-family: 'Caveat', cursive;
+  }
+
+  .font-serif-hero {
+    font-family: 'Lora', Georgia, 'Times New Roman', serif;
+  }
+}
+
+/* Premium fixed header */
+.header-shell {
+  background:
+    radial-gradient(900px 80px at 12% -30%, rgba(255, 107, 0, 0.16), transparent 55%),
+    linear-gradient(180deg, #00244f 0%, #001833 100%);
+  box-shadow: 0 10px 40px -18px rgba(0, 45, 98, 0.45);
+}
+
+.header-mobile-panel {
+  max-height: calc(100vh - var(--site-header-height));
+  max-height: calc(100dvh - var(--site-header-height));
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.dark .header-shell {
+  background:
+    radial-gradient(900px 80px at 12% -30%, rgba(255, 107, 0, 0.14), transparent 55%),
+    linear-gradient(180deg, #001226 0%, #000c18 100%);
+  box-shadow: 0 10px 40px -18px rgba(0, 0, 0, 0.55);
+}
+
+.header-top-bar {
+  background:
+    radial-gradient(1200px 80px at 10% -40%, rgba(255, 107, 0, 0.22), transparent 55%),
+    linear-gradient(90deg, #001833 0%, #002D62 45%, #003A7A 100%);
+}
+
+.header-gold-line {
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #FFB347 20%, #FF6B00 50%, #FFB347 80%, transparent 100%);
+}
+
+.header-donate {
+  background: linear-gradient(135deg, #FF8A1F 0%, #FF6B00 42%, #E05300 100%);
+  box-shadow: 0 8px 22px -8px rgba(255, 107, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.header-donate:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 12px 28px -8px rgba(255, 107, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+@keyframes header-heart {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+
+.header-donate-heart {
+  animation: header-heart 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-donate-heart {
+    animation: none;
+  }
+}
+
+/* Bento card styling utilities */
+.bento-card {
+  background-color: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 20px -2px rgba(0, 45, 98, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark .bento-card {
+  background-color: #0F172A;
+  border-color: rgba(30, 41, 59, 0.8);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.3);
+}
+
+.bento-card:hover {
+  border-color: rgba(255, 107, 0, 0.35);
+  box-shadow: 0 10px 25px -4px rgba(0, 45, 98, 0.08), 0 4px 10px -2px rgba(255, 107, 0, 0.05);
+}
+
+.dark .bento-card:hover {
+  border-color: rgba(255, 107, 0, 0.4);
+  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.5);
+}
+
+/* Recovery-story cards — same navy language as header / footer */
+.story-card {
+  background:
+    radial-gradient(720px 160px at 12% -30%, rgba(255, 107, 0, 0.18), transparent 55%),
+    linear-gradient(180deg, #00244f 0%, #001833 100%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 18px 40px -22px rgba(0, 45, 98, 0.45);
+}
+
+.dark .story-card {
+  background:
+    radial-gradient(720px 160px at 12% -30%, rgba(255, 107, 0, 0.14), transparent 55%),
+    linear-gradient(180deg, #001226 0%, #000c18 100%);
+  box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.55);
+}
+
+/* Custom smooth scrollbar for mobile scan */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media screen and (max-width: 1279px) {
+  #main-header button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+@media screen and (max-width: 639px) {
+  .public-page > *,
+  .public-page section,
+  .public-page article,
+  .public-page aside,
+  .public-page .grid {
+    min-width: 0;
+  }
+
+  .public-page button,
+  .public-page a {
+    max-width: 100%;
+  }
+
+  .admin-mobile-layout button,
+  .admin-mobile-layout select {
+    min-height: 44px;
+  }
+
+  .admin-mobile-layout .overflow-x-auto {
+    max-width: 100%;
+    overscroll-behavior-x: contain;
+  }
+
+  /* Compact lockup keeps the icon and full name alongside both header actions. */
+  .header-brand {
+    flex-shrink: 0;
+  }
+
+  .header-logo > div:last-child > span {
+    white-space: normal;
+    line-height: 1.15;
+  }
+
+  .header-logo > div:last-child > span > span {
+    display: block;
+  }
+
+  .header-logo p {
+    display: none;
+  }
+
+  #header-quick-donate-btn {
+    min-width: 0;
+    max-width: calc(100% - 9.5rem);
+    flex-shrink: 1;
+    gap: 0.375rem;
+    padding-inline: 0.75rem;
+  }
+
+  #header-quick-donate-btn svg {
+    flex-shrink: 0;
+  }
+
+  #header-quick-donate-btn span {
+    min-width: 0;
+  }
+
+  .live-donation-toast[data-presentation="floating"] {
+    left: max(0.75rem, env(safe-area-inset-left, 0px));
+    right: max(0.75rem, env(safe-area-inset-right, 0px));
+    width: min(20rem, calc(100% - max(0.75rem, env(safe-area-inset-left, 0px)) - max(0.75rem, env(safe-area-inset-right, 0px))));
+  }
+
+  /* Keep fixed donation actions above the iOS/Android home indicator. */
+  #sticky-mobile-donate-bar,
+  #mobile-sticky-bar {
+    padding-bottom: calc(0.625rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  #main-footer {
+    padding-bottom: calc(1.5rem + var(--mobile-donation-bar-height, 0px) + env(safe-area-inset-bottom, 0px));
+  }
+
+  #main-footer a,
+  #main-footer button,
+  [data-mobile-donation-bar] button,
+  [data-mobile-donation-bar] a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  #main-footer .footer-contact-item a {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  #main-footer .footer-contact-item {
+    align-items: center;
+  }
+
+  /* Prevent long campaign copy and tables from widening the page. */
+  main, section, footer {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  table {
+    max-width: 100%;
+  }
+
+  /* Let long labels wrap instead of creating horizontal scroll. */
+  [class*="whitespace-nowrap"] {
+    max-width: 100%;
+  }
+
+  /* Unlayered so Tailwind text-xs/text-sm cannot reintroduce iOS focus zoom. */
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+    font-size: 16px;
+  }
+
+  /* Keep long campaign and contact copy inside narrow phone viewports. */
+  h1, h2, h3, h4, p, td, th, a, button {
+    overflow-wrap: anywhere;
+  }
+}
+
+.sponsorship-marquee {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  cursor: grab;
+}
+
+.sponsorship-marquee:active {
+  cursor: grabbing;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s infinite;
+}
+
+/* Pulsing radar for live airport counter */
+@keyframes airportPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.7; }
+}
+
+.pulse-airport {
+  animation: airportPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes rupee-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes rupee-glow-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.06); }
+}
+
+@keyframes erm-shimmer {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+@keyframes erm-ray-pulse {
+  0%, 100% { opacity: 0.55; transform: scaleX(1); }
+  50% { opacity: 1; transform: scaleX(1.15); }
+}
+
+@keyframes erm-dot-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+.every-rupee-float {
+  animation: rupee-float 5.5s ease-in-out infinite;
+}
+
+.every-rupee-glow {
+  animation: rupee-glow-pulse 4.5s ease-in-out infinite;
+}
+
+.every-rupee-blob-svg {
+  overflow: visible;
+}
+
+.erm-shimmer {
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 60%
+  );
+  animation: erm-shimmer 2.8s ease-in-out infinite;
+}
+
+.erm-ray {
+  transform-origin: center;
+  animation: erm-ray-pulse 1.8s ease-in-out infinite;
+}
+
+.erm-ray-delay {
+  animation-delay: 0.2s;
+}
+
+.erm-ray-delay-2 {
+  animation-delay: 0.4s;
+}
+
+.erm-pulse-dot {
+  animation: erm-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.erm-badge {
+  animation: erm-badge-soft 3s ease-in-out infinite;
+}
+
+@keyframes erm-badge-soft {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 0, 0); }
+  50% { box-shadow: 0 0 0 6px rgba(255, 107, 0, 0.08); }
+}
+
+.footer-shell {
+  background:
+    radial-gradient(900px 180px at 15% -20%, rgba(255, 107, 0, 0.12), transparent 55%),
+    linear-gradient(180deg, #00224a 0%, #00152e 100%);
+}
+
+.footer-gold-line {
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent 0%, #FFB347 25%, #FF6B00 50%, #FFB347 75%, transparent 100%);
+}
+
+.footer-kicker {
+  letter-spacing: 0.14em;
+}
+
+.footer-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #94a3b8;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: color 0.18s ease, transform 0.18s ease;
+  text-align: left;
+}
+
+.footer-nav-link:hover {
+  color: #ffb347;
+  transform: translateX(1px);
+}
+
+.footer-contact-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.footer-contact-item a {
+  color: #e2e8f0;
+  font-weight: 600;
+  transition: color 0.18s ease;
+}
+
+.footer-contact-item a:hover {
+  color: #ffb347;
+}
+
+@media print {
+  :root {
+    /* Also removes the main content's header spacer, including measured values. */
+    --site-header-height: 0px !important;
+    --mobile-donation-bar-height: 0px !important;
+    scroll-padding-top: 0 !important;
+  }
+
+  #main-header {
+    display: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .print-app > *:not(.print-sheet) {
+    display: none !important;
+  }
+
+  .print-sheet {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    background: #fff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+
+  .print-sheet > div {
+    position: static !important;
+    max-width: none !important;
+    width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  .print-sheet * {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .print-certificate {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+    box-shadow: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #fff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

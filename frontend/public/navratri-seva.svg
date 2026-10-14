@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600" role="img" aria-labelledby="title desc">
+  <title id="title">Navratri lamp and marigolds</title>
+  <desc id="desc">An original decorative festival illustration of a glowing clay lamp surrounded by marigolds. Not an actual event photograph.</desc>
+  <defs>
+    <radialGradient id="background">
+      <stop stop-color="#fffdf6"/>
+      <stop offset="1" stop-color="#ffe3ad"/>
+    </radialGradient>
+    <radialGradient id="glow">
+      <stop stop-color="#ffd274" stop-opacity=".7"/>
+      <stop offset="1" stop-color="#ffd274" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="clay" x2="0" y2="1">
+      <stop stop-color="#bd4630"/>
+      <stop offset="1" stop-color="#8a2628"/>
+    </linearGradient>
+    <linearGradient id="flame" x2="0" y2="1">
+      <stop stop-color="#ffbd44"/>
+      <stop offset="1" stop-color="#f06a24"/>
+    </linearGradient>
+    <g id="marigold">
+      <g fill="#f58b21" stroke="#e66b1e" stroke-width="1.4">
+        <circle cy="-15" r="12"/><circle cx="11" cy="-11" r="12"/>
+        <circle cx="15" r="12"/><circle cx="11" cy="11" r="12"/>
+        <circle cy="15" r="12"/><circle cx="-11" cy="11" r="12"/>
+        <circle cx="-15" r="12"/><circle cx="-11" cy="-11" r="12"/>
+      </g>
+      <circle r="17" fill="#ffb63e"/>
+      <path d="M-10 0 0-10 10 0 0 10Z" fill="#f28a20"/>
+      <circle r="5" fill="#ffd266"/>
+    </g>
+    <g id="spark" stroke="#c35e2c" stroke-width="2" stroke-linecap="round">
+      <path d="M0-9V9M-9 0H9"/>
+      <circle r="2" fill="#c35e2c"/>
+    </g>
+  </defs>
+  <path fill="url(#background)" d="M0 0h800v600H0z"/>
+  <path d="M30 0v570h740V0" fill="none" stroke="#d49044" stroke-width="1" opacity=".45"/>
+  <path d="M45 0v555h710V0" fill="none" stroke="#d49044" stroke-width="1" opacity=".25"/>
+  <circle cx="400" cy="294" r="212" fill="url(#glow)"/>
+  <g fill="none" stroke="#d18b3c" opacity=".28">
+    <circle cx="400" cy="296" r="179"/>
+    <circle cx="400" cy="296" r="189" stroke-dasharray="2 12" stroke-width="3"/>
+    <path d="M400 83v22M400 487v22M188 296h22M590 296h22M250 146l16 16M534 430l16 16M250 446l16-16M534 162l16-16"/>
+  </g>
+  <path d="M-15 35Q200 165 400 47Q600 165 815 35" fill="none" stroke="#806e38" stroke-width="3"/>
+  <g>
+    <use href="#marigold" x="15" y="52"/>
+    <use href="#marigold" x="65" y="76"/>
+    <use href="#marigold" x="119" y="94"/>
+    <use href="#marigold" x="175" y="103"/>
+    <use href="#marigold" x="231" y="99"/>
+    <use href="#marigold" x="285" y="88"/>
+    <use href="#marigold" x="338" y="72"/>
+    <use href="#marigold" x="400" y="49"/>
+    <use href="#marigold" x="462" y="72"/>
+    <use href="#marigold" x="515" y="88"/>
+    <use href="#marigold" x="569" y="99"/>
+    <use href="#marigold" x="625" y="103"/>
+    <use href="#marigold" x="681" y="94"/>
+    <use href="#marigold" x="735" y="76"/>
+    <use href="#marigold" x="785" y="52"/>
+  </g>
+  <g fill="#698150" opacity=".8">
+    <path d="M120 122q-20 26 0 55 20-29 0-55M284 114q-20 26 0 55 20-29 0-55M516 114q-20 26 0 55 20-29 0-55M681 122q-20 26 0 55 20-29 0-55"/>
+  </g>
+  <g opacity=".7">
+    <use href="#spark" x="252" y="227"/><use href="#spark" x="552" y="228"/>
+    <use href="#spark" x="178" y="373"/><use href="#spark" x="621" y="371"/>
+    <use href="#spark" x="399" y="139"/>
+  </g>
+  <ellipse cx="400" cy="465" rx="195" ry="28" fill="#c67032" opacity=".12"/>
+  <ellipse cx="400" cy="459" rx="175" ry="20" fill="none" stroke="#002d62" stroke-width="2" opacity=".24"/>
+  <path d="M256 345Q271 452 400 459Q529 452 544 345Z" fill="url(#clay)"/>
+  <ellipse cx="400" cy="346" rx="144" ry="37" fill="#dd7540"/>
+  <ellipse cx="400" cy="343" rx="126" ry="26" fill="#7f2e27"/>
+  <ellipse cx="400" cy="340" rx="111" ry="19" fill="#efaa45"/>
+  <path d="M301 386Q400 459 499 386M320 413Q400 463 480 413" fill="none" stroke="#f3b267" stroke-width="3"/>
+  <g fill="#ffd59b">
+    <circle cx="322" cy="390" r="3"/><circle cx="348" cy="405" r="3"/>
+    <circle cx="375" cy="414" r="3"/><circle cx="400" cy="417" r="3"/>
+    <circle cx="425" cy="414" r="3"/><circle cx="452" cy="405" r="3"/>
+    <circle cx="478" cy="390" r="3"/>
+  </g>
+  <path d="M400 339q-8-17-2-37" fill="none" stroke="#563123" stroke-width="7" stroke-linecap="round"/>
+  <path d="M400 313C334 296 362 241 403 181C397 236 469 276 400 313Z" fill="url(#flame)"/>
+  <path d="M400 307C377 298 382 273 401 244C407 271 429 292 400 307Z" fill="#fff5c5"/>
+  <g>
+    <use href="#marigold" x="225" y="472"/>
+    <use href="#marigold" x="281" y="488"/>
+    <use href="#marigold" x="523" y="488"/>
+    <use href="#marigold" x="578" y="469"/>
+  </g>
+  <g fill="#b3392d">
+    <path d="M329 504q16-22 27 1-16 8-27-1M446 502q15-23 29-2-15 11-29 2M188 448q-8-22 16-19 0 20-16 19M605 443q-6-22 17-18-1 20-17 18"/>
+  </g>
+  <g fill="#002d62" opacity=".55">
+    <circle cx="379" cy="510" r="2"/><circle cx="400" cy="515" r="3"/><circle cx="421" cy="510" r="2"/>
+  </g>
+</svg>
