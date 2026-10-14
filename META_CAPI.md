@@ -74,10 +74,23 @@ domain, inspect the published GTM container and the deployed preview build. Do
 not add the preview domain to a trusted domain list unless it is intentionally
 part of production tracking.
 
-The DevTools screenshot shows the CSP resource list collapsed. Expand the
-reported blocked directives in DevTools Issues and capture the full blocked URL
-and directive before adding any additional origin. Never add a broad cloud-host
-wildcard to make a CSP warning disappear.
+The DevTools screenshot identified one additional exact request:
+`https://mpc-prod-28-1053047382554.us-central1.run.app/events?cee=no`, initiated
+from the browser's Meta Pixel script. The application CSP now permits that exact
+origin under `connect-src` only. It does not permit arbitrary `run.app` hosts,
+and it does not add `unsafe-eval` to the script policy.
+
+The separate DevTools issue reporting blocked string evaluation comes from
+`gtm.js?id=GTM-WRK43MWJ`. It cannot be fixed by changing `connect-src`. Inspect
+the remote GTM container for Custom JavaScript variables or other code using
+`eval()`, `new Function()`, or equivalent string evaluation; replace that code
+with built-in variables or Custom Templates instead of automatically weakening
+CSP.
+
+The DevTools screenshot's seven-directive resource list is still partially
+collapsed. If further CSP issues remain after deployment, expand each directive
+and capture its full blocked URL and directive before adding another source.
+Never add a broad cloud-host wildcard to make a CSP warning disappear.
 
 ## Consent and data minimisation
 
