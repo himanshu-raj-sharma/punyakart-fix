@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { StoredDonation } from './types.js';
+import { normalizeClientIpAddress } from './ipAddress.js';
 import {
   MongoMetaConversionRepository,
   type MetaConversionOutbox,
@@ -156,8 +157,15 @@ function preparePurchase(donation: StoredDonation, payment: MetaCapturedPayment,
   source.hash = '';
   if (attribution.fbp !== undefined && !validCookie(attribution.fbp, false, now)) return null;
   if (attribution.fbc !== undefined && !validCookie(attribution.fbc, true, now)) return null;
-  const agent = attribution.clientUserAgent;
-  if (agent !== undefined && (typeof agent !== 'string' || !agent.trim() || agent.length > 512 || /[\x00-\x1f\x7f]/.test(agent))) return null;
+  const rawAgent = attribution.clientUserAgent;
+  const agent = typeof rawAgent === 'string' && !!rawAgent.trim() &&
+    rawAgent.length <= 512 && !/[\x00-\x1f\x7f]/.test(rawAgent) ? rawAgent : undefined;
+  const clientIpAddress = normalizeClientIpAddress(attribution.clientIpAddress);
+  // Meta flags events that include a user agent without an IP. Include browser network
+  // context only as a valid pair; missing optional attribution must not reject a real Purchase.
+  const browserNetworkData = agent && clientIpAddress
+    ? { client_user_agent: agent, client_ip_address: clientIpAddress }
+    : {};
   const em = emailHash(donation.email);
   const ph = phoneHash(donation.phone);
   if (!em && !ph && !attribution.fbp && !attribution.fbc) return null;
@@ -173,8 +181,7 @@ function preparePurchase(donation: StoredDonation, payment: MetaCapturedPayment,
       ...(ph ? { ph: [ph] } : {}),
       ...(attribution.fbp ? { fbp: attribution.fbp } : {}),
       ...(attribution.fbc ? { fbc: attribution.fbc } : {}),
-      ...(agent ? { client_user_agent: agent } : {}),
-      ...(attribution.clientIpAddress ? { client_ip_address: attribution.clientIpAddress } : {}),
+      ...browserNetworkData,
     },
   };
   return {
