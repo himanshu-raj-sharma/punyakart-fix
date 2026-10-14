@@ -471,7 +471,7 @@ export const TuesdayCampaignPage: React.FC<TuesdayCampaignPageProps> = ({
     );
     setStepperValues((prev) => ({ ...prev, [id]: change.nextStepperQuantity }));
     if (change.target === 'cart') {
-      updateQuantity(id, delta);
+      updateQuantity(id, change.delta);
     }
   };
 
