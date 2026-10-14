@@ -1,6 +1,7 @@
 export type CampaignQuantityChange =
   | {
       target: 'cart';
+      delta: number;
       nextCartQuantity: number;
       nextStepperQuantity: number;
     }
@@ -35,6 +36,7 @@ export function resolveCampaignQuantityChange(
     const nextCartQuantity = Math.max(0, cartQuantity + safeDelta);
     return {
       target: 'cart',
+      delta: safeDelta,
       nextCartQuantity,
       nextStepperQuantity: nextCartQuantity > 0 ? nextCartQuantity : 1,
     };
