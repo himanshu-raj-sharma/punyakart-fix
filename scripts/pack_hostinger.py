@@ -179,7 +179,7 @@ def validate_archive(archive, expected):
             "frontend/src/utils/campaignRoutes.ts", "frontend/src/components/RouteErrorBoundary.tsx",
             "tests/campaignRoutes.test.ts", "tests/campaignRouteLoading.test.ts",
             "tests/securityBoundary.test.ts",
-            "backend/metaConversions.ts", "backend/metaPaymentTracking.ts",
+            "backend/metaConversions.ts", "backend/metaPaymentTracking.ts", "backend/ipAddress.ts",
             "backend/db/MongoMetaConversionRepository.ts", "frontend/src/utils/metaTracking.ts",
             "frontend/src/utils/donationSource.ts", "frontend/src/utils/donationCurrency.ts",
             "backend/adminDonation.ts", "backend/trafficAttribution.ts",
