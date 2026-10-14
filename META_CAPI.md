@@ -50,6 +50,35 @@ before activating a second server sender.** If a gateway already sends Purchase,
 its event IDs must be coordinated or that duplicate Purchase sender disabled.
 This release does not change external gateway settings or Meta UI event rules.
 
+## GTM and Content Security Policy diagnostics
+
+The site's CSP intentionally does **not** permit `'unsafe-eval'`. The browser
+diagnostic in which `gtm.js` attempts string evaluation commonly indicates a
+Google Tag Manager Custom JavaScript variable or another container feature that
+depends on evaluation. Google's recommended alternative is to replace Custom
+JavaScript variables with built-in variables or Custom Templates; do not loosen
+the site CSP simply to hide the error without reviewing the container.
+
+Review container `GTM-WRK43MWJ` for tags/variables that send Meta `Purchase` or
+`InitiateCheckout`. The site code already emits native browser events with the
+real server-created/verified INR amount and a matching event ID for the opt-in
+Pixel. If GTM also sends those Meta events, it can create duplicate or constant-
+value events. Keep only one deliberate sender per event/Pixels, or explicitly
+supply validated dynamic `value`, `currency`, and event IDs to the chosen GTM
+tag. Do not guess at event parameters or use a fixed donation value.
+
+The application source loads GTM, Pixel and Clarity only on `punyakart.com` and
+`www.punyakart.com`, and the native event helper now separately blocks native
+Meta conversion dispatch on other browser hosts. If Meta reports a Vercel preview
+domain, inspect the published GTM container and the deployed preview build. Do
+not add the preview domain to a trusted domain list unless it is intentionally
+part of production tracking.
+
+The DevTools screenshot shows the CSP resource list collapsed. Expand the
+reported blocked directives in DevTools Issues and capture the full blocked URL
+and directive before adding any additional origin. Never add a broad cloud-host
+wildcard to make a CSP warning disappear.
+
 ## Consent and data minimisation
 
 Checkout has an **optional, unchecked** Meta advertising-measurement choice.
@@ -74,9 +103,14 @@ Only these fields are allowed into a Purchase event:
 - Event name, original verification time, donation event ID, website source URL.
 - Actual captured amount in rupees and currency `INR`.
 - SHA-256-hashed, normalized email and Indian phone number including country code.
-- Existing valid `_fbp` / `_fbc` cookies and the original browser user agent, when
-  available after opt-in. Missing click IDs are not fabricated; webhook IP/UA is
-  never substituted for the visitor. Client IP is not collected by this release.
+- Existing valid `_fbp` / `_fbc` cookies and the original browser user agent
+  and server-resolved client IP, when available after opt-in. The server normalizes
+  valid IPv4-mapped IPv6 addresses and rejects malformed IP strings. Client IP is
+  never accepted from the browser request body.
+- The CAPI payload includes `client_user_agent` and `client_ip_address` together
+  only when both are valid. If one is missing/invalid, both are omitted so the
+  event does not send a mismatched browser-network pair. Webhook IP/UA is never
+  substituted for the visitor.
 
 No PAN, postal address, prayer/dedication text, cause text, full name, payment card
 details or raw email/phone are sent by this integration. Hashing is not anonymity.
