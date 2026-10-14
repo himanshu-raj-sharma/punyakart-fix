@@ -74,23 +74,37 @@ domain, inspect the published GTM container and the deployed preview build. Do
 not add the preview domain to a trusted domain list unless it is intentionally
 part of production tracking.
 
-The DevTools screenshot identified one additional exact request:
-`https://mpc-prod-28-1053047382554.us-central1.run.app/events?cee=no`, initiated
-from the browser's Meta Pixel script. The application CSP now permits that exact
-origin under `connect-src` only. It does not permit arbitrary `run.app` hosts,
-and it does not add `unsafe-eval` to the script policy.
+The live production DevTools report on 2026-10-14 showed these exact Meta-related event hosts:
+`https://mpc-prod-28-1053047382554.us-central1.run.app`,
+`https://mpc-prod-21-1053047382554.us-central1.run.app`, and
+`https://5z-2b6b7616f94640c2840d1841e1ac24c3.ecs.us-east-1.on.aws`.
+The policy permits only these observed hosts under `connect-src`; it does not
+allow arbitrary `run.app` or `on.aws` domains.
+
+The same report showed the Meta Conversions API parameter-builder client bundle
+loaded by the remotely managed GTM container from
+`https://cdn.jsdelivr.net/npm/meta-capi-param-builder-clientjs/dist/clientParamBuilder.bundle.js`
+and
+`https://unpkg.com/meta-capi-param-builder-clientjs/dist/clientParamBuilder.bundle.js`.
+These exact script paths are allowed for the published Meta client SDK
+(see https://www.npmjs.com/package/meta-capi-param-builder-clientjs and
+https://github.com/facebook/capi-param-builder). The Clarity script host
+`https://scripts.clarity.ms` is also allowed explicitly because `script-src`
+overrides `default-src` for scripts. The policy does not trust the entire
+jsDelivr or unpkg host, and no `unsafe-eval` was added.
 
 The separate DevTools issue reporting blocked string evaluation comes from
-`gtm.js?id=GTM-WRK43MWJ`. It cannot be fixed by changing `connect-src`. Inspect
-the remote GTM container for Custom JavaScript variables or other code using
-`eval()`, `new Function()`, or equivalent string evaluation; replace that code
-with built-in variables or Custom Templates instead of automatically weakening
-CSP.
+`gtm.js?id=GTM-WRK43MWJ`. It cannot be fixed by changing `connect-src` or by
+adding script hosts. Google's guidance states that GTM Custom JavaScript variables
+may require `unsafe-eval`, but recommends replacing them with built-in variables
+or sandboxed Custom Templates instead. Inspect the remote GTM container and fix
+the specific tag/variable there; do not weaken CSP globally just to clear this
+warning.
 
-The DevTools screenshot's seven-directive resource list is still partially
-collapsed. If further CSP issues remain after deployment, expand each directive
-and capture its full blocked URL and directive before adding another source.
-Never add a broad cloud-host wildcard to make a CSP warning disappear.
+After deploying this policy update, recheck the browser's exact blocked URL list.
+If Meta rotates to a new event endpoint host, inspect its ownership and origin
+before adding another exact host. Never add a broad cloud-host wildcard to make
+a CSP warning disappear.
 
 ## Consent and data minimisation
 
