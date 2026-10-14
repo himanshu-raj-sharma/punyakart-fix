@@ -57,3 +57,18 @@ test('invalid values safely fall back to a quantity of one', () => {
     nextStepperQuantity: 2,
   });
 });
+
+import { nextCampaignCartQuantity } from '../frontend/src/utils/campaignQuantity.js';
+
+test('live campaign quantities increment, decrement, and remove at zero', () => {
+  assert.equal(nextCampaignCartQuantity(0, 1), 1);
+  assert.equal(nextCampaignCartQuantity(1, 1), 2);
+  assert.equal(nextCampaignCartQuantity(3, -1), 2);
+  assert.equal(nextCampaignCartQuantity(1, -1), 0);
+  assert.equal(nextCampaignCartQuantity(0, -1), 0);
+});
+
+test('live campaign quantity ignores invalid deltas and normalizes invalid counts', () => {
+  assert.equal(nextCampaignCartQuantity(-5, 1), 1);
+  assert.equal(nextCampaignCartQuantity(2, Number.NaN), 2);
+});
