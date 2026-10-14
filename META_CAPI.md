@@ -101,6 +101,13 @@ or sandboxed Custom Templates instead. Inspect the remote GTM container and fix
 the specific tag/variable there; do not weaken CSP globally just to clear this
 warning.
 
+The latest production report also showed a frame request to
+`https://www.facebook.com` initiated from the GTM container and blocked by
+`frame-src`. The policy now permits that exact frame origin to resolve this
+observed request while continuing to reject a broad Facebook subdomain wildcard.
+This change only controls whether the page may load a frame from that origin;
+it does not authorize Facebook to embed Punyakart.
+
 After deploying this policy update, recheck the browser's exact blocked URL list.
 If Meta rotates to a new event endpoint host, inspect its ownership and origin
 before adding another exact host. Never add a broad cloud-host wildcard to make
