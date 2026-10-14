@@ -174,6 +174,7 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
 
   // 2x2 counter card states
   const [cardCounts, setCardCounts] = useState<Record<number, number>>({ 1000: 0, 2000: 0, 3000: 0, 5000: 0 });
+  const [hasEditedImpactCardQuantities, setHasEditedImpactCardQuantities] = useState(false);
 
   // Rescue stories mobile slider ref & active index + auto sliding
   const storySliderRef = useRef<HTMLDivElement>(null);
@@ -267,6 +268,7 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
     const cardTotal = calcCardTotal(cardCounts);
     if (cardTotal > 0) return cardTotal;
     if (selectedPreset) return selectedPreset;
+    if (hasEditedImpactCardQuantities) return 0;
     return amount || 1000;
   };
 
@@ -293,6 +295,7 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
     setCustomAmount('');
     setSelectedPreset(null);
     setAmountError(null);
+    setHasEditedImpactCardQuantities(true);
 
     const updated = {
       ...cardCounts,
@@ -308,6 +311,7 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
     setCustomAmount('');
     setSelectedPreset(null);
     setAmountError(null);
+    setHasEditedImpactCardQuantities(true);
     setCardCounts({ 1000: 0, 2000: 0, 3000: 0, 5000: 0, [amt]: 1 });
     onAmountAndCauseTitleChange(amt, getCauseTitle(amt));
   };
@@ -316,6 +320,7 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
     const val = e.target.value;
     setCustomAmount(val);
     setSelectedPreset(null);
+    setHasEditedImpactCardQuantities(false);
     setCardCounts({ 1000: 0, 2000: 0, 3000: 0, 5000: 0 });
     setAmountError(null);
     if (val.trim()) {
@@ -326,6 +331,7 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
 
   const handleSelectPresetChip = (amt: number) => {
     setCardCounts({ 1000: 0, 2000: 0, 3000: 0, 5000: 0 });
+    setHasEditedImpactCardQuantities(false);
     setCustomAmount(amt.toString());
     setSelectedPreset(amt);
     setAmountError(null);
@@ -540,7 +546,8 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
                       <button
                         type="button"
                         onClick={() => handleQuantityChange(card.amt, -1)}
-                        className="flex w-1/4 items-center justify-center border-r border-white/35 text-xl font-black hover:bg-[#E05300] active:scale-95 transition-all cursor-pointer"
+                        disabled={qty === 0}
+                        className="flex w-1/4 items-center justify-center border-r border-white/35 text-xl font-black hover:bg-[#E05300] active:scale-95 transition-all cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-[#FF6B00]"
                         aria-label={`Decrease ${card.title}`}
                       >
                         <Minus className="w-4 h-4 stroke-[2.5]" />
