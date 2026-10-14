@@ -2,6 +2,7 @@ import type { MetaAttribution, MetaCapturedPayment, MetaConversionsService } fro
 import type { StoredDonation } from './types.js';
 import type { DonationService } from './donationService.js';
 import { BusinessError } from './errors.js';
+import { normalizeClientIpAddress } from './ipAddress.js';
 
 function object(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
@@ -39,11 +40,9 @@ export function captureMetaAttribution(
       attribution.clientUserAgent = userAgent;
     }
     // Only accept the server-resolved request IP, never an IP supplied in the JSON body.
-    if (typeof clientIpAddress === 'string' && clientIpAddress.length <= 45 &&
-        /^(?:\d{1,3}(?:\.\d{1,3}){3}|[0-9a-fA-F:]{2,45})$/.test(clientIpAddress) &&
-        !/[\x00-\x20\x7f]/.test(clientIpAddress)) {
-      attribution.clientIpAddress = clientIpAddress;
-    }
+    // Normalize IPv4-mapped IPv6 values and reject malformed IP strings before CAPI delivery.
+    const normalizedIp = normalizeClientIpAddress(clientIpAddress);
+    if (normalizedIp) attribution.clientIpAddress = normalizedIp;
     return attribution;
   } catch {
     // Missing/malformed optional tracking must never prevent a donation.
