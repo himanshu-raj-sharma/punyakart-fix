@@ -1,0 +1,35 @@
+name: Validate Punyakart Meta tracking repair
+
+on:
+  push:
+    branches:
+      - meta-fix-work
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Lint, Meta tests, CSP tests, and production build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Type-check
+        run: npm run lint
+      - name: Test Meta Pixel and Conversions API
+        run: npm run test:meta
+      - name: Test Content Security Policy
+        run: npm run test:csp
+      - name: Build production server and frontend
+        run: npm run build
