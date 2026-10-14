@@ -51,6 +51,7 @@ import type { Currency, DonationCartItem, ProductItem } from '../types/campaign'
 import { useRecentDonations } from '../hooks/useRecentDonations';
 import { usePublicCampaign } from '../hooks/usePublicCampaign';
 import { campaignDonationAvailable, campaignAvailabilityMessage } from '../utils/publicCampaignPolling';
+import { resolveCampaignQuantityChange } from '../utils/campaignQuantity.js';
 import { canonicalCampaignId } from '../utils/campaignRoutes';
 import { donorFeedMessage, formatRelativeTime, publicStat } from '../utils/publicDonations';
 
@@ -462,19 +463,23 @@ export const TuesdayCampaignPage: React.FC<TuesdayCampaignPageProps> = ({
   const finalDonationAmount = customAmountValue ? totalAmount : (totalAmount > 0 ? totalAmount : 1001);
 
   const handleStepperChange = (id: string, delta: number) => {
-    setStepperValues((prev) => {
-      const current = prev[id] || 1;
-      const next = Math.max(1, current + delta);
-      return { ...prev, [id]: next };
-    });
+    const cartQuantity = quantities[id] || 0;
+    const change = resolveCampaignQuantityChange(
+      cartQuantity,
+      stepperValues[id] || 1,
+      delta,
+    );
+    setStepperValues((prev) => ({ ...prev, [id]: change.nextStepperQuantity }));
+    if (change.target === 'cart') {
+      updateQuantity(id, change.delta);
+    }
   };
 
   const handleAddToCart = (item: SevaItem) => {
+    if ((quantities[item.id] || 0) > 0) return;
     const addCount = stepperValues[item.id] || 1;
-    setQuantities((prev) => ({
-      ...prev,
-      [item.id]: (prev[item.id] || 0) + addCount,
-    }));
+    setQuantities((prev) => ({ ...prev, [item.id]: addCount }));
+    setStepperValues((prev) => ({ ...prev, [item.id]: addCount }));
     setSelectedPreset(null);
     setCustomAmountValue('');
   };
@@ -726,10 +731,20 @@ export const TuesdayCampaignPage: React.FC<TuesdayCampaignPageProps> = ({
                         <button
                           type="button"
                           onClick={() => handleAddToCart(card)}
-                          className="flex min-w-0 flex-1 items-center justify-center px-2 text-xs sm:text-sm font-black tabular-nums hover:bg-[#E05300] active:scale-95 cursor-pointer"
-                          aria-label={`Add ${card.name} worth ₹${(card.unitPrice * stepperVal).toLocaleString('en-IN')}`}
+                          disabled={inCartQty > 0}
+                          className="flex min-w-0 flex-1 items-center justify-center px-2 text-xs sm:text-sm font-black tabular-nums hover:bg-[#E05300] active:scale-95 cursor-pointer disabled:cursor-default disabled:hover:bg-[#FF6B00]"
+                          aria-label={inCartQty > 0
+                            ? `${card.name} added, quantity ${inCartQty}, total ₹${(card.unitPrice * inCartQty).toLocaleString('en-IN')}`
+                            : `Add ${card.name} worth ₹${(card.unitPrice * stepperVal).toLocaleString('en-IN')}`}
                         >
-                          {inCartQty > 0 ? `Added (${inCartQty})` : `₹${(card.unitPrice * stepperVal).toLocaleString('en-IN')}`}
+                          {inCartQty > 0 ? (
+                            <span className="flex flex-col items-center leading-tight">
+                              <span>Added ({inCartQty})</span>
+                              <span className="text-[10px] font-bold">₹{(card.unitPrice * inCartQty).toLocaleString('en-IN')}</span>
+                            </span>
+                          ) : (
+                            `₹${(card.unitPrice * stepperVal).toLocaleString('en-IN')}`
+                          )}
                         </button>
                         <button
                           type="button"

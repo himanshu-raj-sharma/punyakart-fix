@@ -14,6 +14,7 @@
     "test:csp": "tsx --test tests/contentSecurityPolicy.test.ts",
     "test:donations": "tsx --test tests/donationAmounts.test.ts",
     "test:meta": "tsx --test tests/metaConversions.test.ts tests/metaTracking.test.ts tests/metaPaymentFlow.test.ts",
+    "test:campaign-quantity": "tsx --test tests/campaignQuantity.test.ts",
     "test:traffic": "tsx --test tests/trafficAttribution.test.ts tests/adminTraffic.test.ts tests/trafficFlow.test.ts",
     "test:navratri": "tsx --test tests/navratriPage.test.ts tests/navratriDiscovery.test.ts tests/navratriIntegration.test.ts",
     "migrate": "node dist/migrate.cjs",

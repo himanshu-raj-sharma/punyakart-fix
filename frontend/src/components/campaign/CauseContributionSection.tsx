@@ -9,6 +9,7 @@ import dryGrassImg from '../../assets/campaigns/dry_grass.png';
 import type { CampaignContent } from '../../types/campaignCms';
 import { DONATION_AMOUNT_ERROR, isValidDonationAmount, MAX_DONATION_AMOUNT, MIN_DONATION_AMOUNT, parseDonationAmount } from '../../constants/donation';
 import { allocationMaterialsFromProducts, type AllocationMaterial } from './WhereYourMoneyGoes';
+import { resolveCampaignQuantityChange } from '../../utils/campaignQuantity.js';
 
 interface CauseContributionSectionProps {
   onDonateAmount: (amount: number, currency: Currency) => void;
@@ -134,29 +135,36 @@ export const CauseContributionSection: React.FC<CauseContributionSectionProps> =
     }, 1200);
   };
 
-  // Stepper increment / decrement
-  const handleStepperChange = (id: string, delta: number) => {
-    setStepperValues((prev) => {
-      const current = prev[id] || 1;
-      const next = Math.max(1, current + delta);
-      return { ...prev, [id]: next };
-    });
+  const toProductItem = (card: ImpactCard): ProductItem => ({
+    id: card.id,
+    name: card.title,
+    unitPrice: card.price,
+    unitLabel: card.unit.replace('/', '').trim(),
+    fundedUnits: 142,
+    targetUnits: 500,
+    image: card.image,
+    description: card.subtitle,
+  });
+
+  // Before adding, +/- changes the prepared quantity. After adding, it changes the cart.
+  const handleStepperChange = (card: ImpactCard, cartQuantity: number, delta: number) => {
+    const change = resolveCampaignQuantityChange(
+      cartQuantity,
+      stepperValues[card.id] || 1,
+      delta,
+    );
+    setStepperValues((prev) => ({ ...prev, [card.id]: change.nextStepperQuantity }));
+    if (change.target === 'cart') {
+      onUpdateCartQty(toProductItem(card), change.delta);
+    }
   };
 
-  // Add + button clicked
+  // Add the prepared quantity once. After that, use +/- to change the live cart quantity.
   const handleAddToCart = (card: ImpactCard) => {
+    if ((quantities[card.id] || 0) > 0) return;
     const addCount = stepperValues[card.id] || 1;
-    const productItem: ProductItem = {
-      id: card.id,
-      name: card.title,
-      unitPrice: card.price,
-      unitLabel: card.unit.replace('/', '').trim(),
-      fundedUnits: 142,
-      targetUnits: 500,
-      image: card.image,
-      description: card.subtitle,
-    };
-    onUpdateCartQty(productItem, addCount);
+    onUpdateCartQty(toProductItem(card), addCount);
+    setStepperValues((prev) => ({ ...prev, [card.id]: addCount }));
     setActiveTab(card.id);
     setHighlightedCardId(card.id);
     setTimeout(() => {
@@ -266,7 +274,7 @@ export const CauseContributionSection: React.FC<CauseContributionSectionProps> =
                     <div className="flex min-h-12 w-full items-stretch overflow-hidden rounded-xl bg-[#FF6B00] text-white shadow-2xs">
                       <button
                         type="button"
-                        onClick={() => handleStepperChange(card.id, -1)}
+                        onClick={() => handleStepperChange(card, inCartQty, -1)}
                         className="flex w-1/4 items-center justify-center border-r border-white/35 text-xl font-black hover:bg-[#E05300] active:scale-95 cursor-pointer"
                         aria-label={`Decrease quantity of ${card.title}`}
                       >
@@ -275,14 +283,24 @@ export const CauseContributionSection: React.FC<CauseContributionSectionProps> =
                       <button
                         type="button"
                         onClick={() => handleAddToCart(card)}
-                        className="flex min-w-0 flex-1 items-center justify-center px-2 text-sm font-black tabular-nums hover:bg-[#E05300] active:scale-95 cursor-pointer"
-                        aria-label={`Add ${card.title} worth ₹${(card.price * stepperVal).toLocaleString('en-IN')}`}
+                        disabled={inCartQty > 0}
+                        className="flex min-w-0 flex-1 items-center justify-center px-2 text-sm font-black tabular-nums hover:bg-[#E05300] active:scale-95 cursor-pointer disabled:cursor-default disabled:hover:bg-[#FF6B00]"
+                        aria-label={inCartQty > 0
+                          ? `${card.title} added, quantity ${inCartQty}, total ₹${(card.price * inCartQty).toLocaleString('en-IN')}`
+                          : `Add ${card.title} worth ₹${(card.price * stepperVal).toLocaleString('en-IN')}`}
                       >
-                        {inCartQty > 0 ? `Added (${inCartQty})` : `₹${(card.price * stepperVal).toLocaleString('en-IN')}`}
+                        {inCartQty > 0 ? (
+                          <span className="flex flex-col items-center leading-tight">
+                            <span>Added ({inCartQty})</span>
+                            <span className="text-[10px] font-bold">₹{(card.price * inCartQty).toLocaleString('en-IN')}</span>
+                          </span>
+                        ) : (
+                          `₹${(card.price * stepperVal).toLocaleString('en-IN')}`
+                        )}
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleStepperChange(card.id, 1)}
+                        onClick={() => handleStepperChange(card, inCartQty, 1)}
                         className="flex w-1/4 items-center justify-center border-l border-white/35 text-xl font-black hover:bg-[#E05300] active:scale-95 cursor-pointer"
                         aria-label={`Increase quantity of ${card.title}`}
                       >
