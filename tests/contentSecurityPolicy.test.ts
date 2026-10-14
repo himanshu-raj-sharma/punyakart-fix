@@ -8,6 +8,8 @@ import { CONTENT_SECURITY_POLICY } from '../backend/contentSecurityPolicy';
 const gatewayOrigins = [
   'https://md-eecad2978f7a43f5b7838c919258e6de.ecs.us-east-2.on.aws',
   'https://bded8a3c6ae-1-1053047382554.us-central1.run.app',
+  // Exact host observed in the Meta Pixel event request in punyakart.com DevTools.
+  'https://mpc-prod-28-1053047382554.us-central1.run.app',
 ];
 const metaSetupScript = 'https://www.facebook.com/signals/iwl.js';
 const originalConnectSources = [
@@ -31,7 +33,7 @@ const clarityConnectSources = ['https://*.clarity.ms', 'https://c.bing.com'];
 const directives = CONTENT_SECURITY_POLICY.split('; ').map(value => value.split(/\s+/));
 const connectSources = directives.find(([name]) => name === 'connect-src')!.slice(1);
 
-test('connect-src permits Clarity telemetry and existing Meta gateway/fallback origins', () => {
+test('connect-src permits Clarity telemetry and the exact observed Meta Pixel event endpoint', () => {
   assert.deepEqual(connectSources, [...originalConnectSources.slice(0, 6), ...clarityConnectSources, ...originalConnectSources.slice(6), ...gatewayOrigins]);
   assert.equal(directives.filter(([name]) => name === 'connect-src').length, 1);
   assert.ok(connectSources.includes('https://*.clarity.ms'));
