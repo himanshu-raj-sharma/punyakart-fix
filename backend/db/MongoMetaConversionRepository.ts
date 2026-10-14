@@ -15,6 +15,7 @@ export interface MetaPurchaseEvent {
     fbp?: string;
     fbc?: string;
     client_user_agent?: string;
+    client_ip_address?: string;
   };
 }
 
