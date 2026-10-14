@@ -8,8 +8,10 @@ import { CONTENT_SECURITY_POLICY } from '../backend/contentSecurityPolicy';
 const gatewayOrigins = [
   'https://md-eecad2978f7a43f5b7838c919258e6de.ecs.us-east-2.on.aws',
   'https://bded8a3c6ae-1-1053047382554.us-central1.run.app',
-  // Exact host observed in the Meta Pixel event request in punyakart.com DevTools.
+  // Exact hosts observed in live production DevTools on 2026-10-14.
   'https://mpc-prod-28-1053047382554.us-central1.run.app',
+  'https://mpc-prod-21-1053047382554.us-central1.run.app',
+  'https://5z-2b6b7616f94640c2840d1841e1ac24c3.ecs.us-east-1.on.aws',
 ];
 const metaSetupScript = 'https://www.facebook.com/signals/iwl.js';
 const originalConnectSources = [
@@ -29,6 +31,11 @@ const originalConnectSources = [
   'https://ad.doubleclick.net',
 ];
 const clarityScriptOrigin = 'https://www.clarity.ms';
+const clarityNestedScriptOrigin = 'https://scripts.clarity.ms';
+const metaParamBuilderScripts = [
+  'https://cdn.jsdelivr.net/npm/meta-capi-param-builder-clientjs/dist/clientParamBuilder.bundle.js',
+  'https://unpkg.com/meta-capi-param-builder-clientjs/dist/clientParamBuilder.bundle.js',
+];
 const clarityConnectSources = ['https://*.clarity.ms', 'https://c.bing.com'];
 const directives = CONTENT_SECURITY_POLICY.split('; ').map(value => value.split(/\s+/));
 const connectSources = directives.find(([name]) => name === 'connect-src')!.slice(1);
@@ -45,8 +52,11 @@ test('connect-src permits Clarity telemetry and the exact observed Meta Pixel ev
   }
 });
 
-test('script directives add only Meta setup bootstrap and other directives remain unchanged', () => {
+test('script directives allow exact Clarity and Meta parameter-builder scripts without broad CDN trust', () => {
   const originalScripts = "'self' 'unsafe-inline' https://checkout.razorpay.com https://cdn.razorpay.com https://connect.facebook.net https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://www.google.com";
+  assert.ok(!directives.find(([name]) => name === 'script-src')!.includes('https://cdn.jsdelivr.net'));
+  assert.ok(!directives.find(([name]) => name === 'script-src-elem')!.includes('https://unpkg.com'));
+  assert.ok(!directives.find(([name]) => name === 'script-src-elem')!.includes("'unsafe-eval'"));
   assert.deepEqual(directives.filter(([name]) => name !== 'connect-src').map(parts => parts.join(' ')), [
     "default-src 'self' https://*.clarity.ms https://c.bing.com",
     "base-uri 'self'",
@@ -54,8 +64,8 @@ test('script directives add only Meta setup bootstrap and other directives remai
     "img-src 'self' data: blob: https:",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
-    `script-src ${originalScripts.split(' https://www.googletagmanager.com')[0]} ${clarityScriptOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://www.google.com ${metaSetupScript}`,
-    `script-src-elem ${originalScripts.split(' https://www.googletagmanager.com')[0]} ${clarityScriptOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://www.google.com ${metaSetupScript}`,
+    `script-src ${originalScripts.split(' https://www.googletagmanager.com')[0]} ${clarityScriptOrigin} ${clarityNestedScriptOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://www.google.com ${metaSetupScript} ${metaParamBuilderScripts.join(' ')}`,
+    `script-src-elem ${originalScripts.split(' https://www.googletagmanager.com')[0]} ${clarityScriptOrigin} ${clarityNestedScriptOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://www.google.com ${metaSetupScript} ${metaParamBuilderScripts.join(' ')}`,
     "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://www.googletagmanager.com",
   ]);
 });
