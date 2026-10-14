@@ -36,6 +36,7 @@ import { translations } from '../data/content';
 import { useRecentDonations } from '../hooks/useRecentDonations';
 import { usePublicCampaign } from '../hooks/usePublicCampaign';
 import { campaignDonationAvailable, campaignAvailabilityMessage } from '../utils/publicCampaignPolling';
+import { nextCampaignCartQuantity } from '../utils/campaignQuantity.js';
 import { donorFeedMessage, formatRelativeTime } from '../utils/publicDonations';
 import { navigate } from '../navigation';
 import { EveryRupeeMattersBanner } from '../components/EveryRupeeMattersBanner';
@@ -276,18 +277,31 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
     return `${cause?.label ?? 'Punyakart Crowd Donation'} — ₹${amt.toLocaleString('en-IN')}`;
   };
 
+  const getCauseTitleForCounts = (counts: Record<number, number>): string => {
+    const selected = impactCards
+      .filter((card) => (counts[card.amt] || 0) > 0)
+      .map((card) => {
+        const quantity = counts[card.amt];
+        return `${card.title}${quantity > 1 ? ` × ${quantity}` : ''} (${card.subtitle})`;
+      });
+    if (selected.length) return selected.join('; ');
+    const cause = causes.find((item) => item.id === activeCause);
+    return cause?.label ?? 'Punyakart Crowd Donation';
+  };
+
   const handleQuantityChange = (amt: number, delta: number) => {
     setCustomAmount('');
     setSelectedPreset(null);
     setAmountError(null);
-    setCardCounts((prev) => {
-      const current = prev[amt] || 0;
-      const next = Math.max(0, current + delta);
-      const updated = { ...prev, [amt]: next };
-      const total = calcCardTotal(updated);
-      onAmountAndCauseTitleChange(total, getCauseTitle(total));
-      return updated;
-    });
+
+    const updated = {
+      ...cardCounts,
+      [amt]: nextCampaignCartQuantity(cardCounts[amt] || 0, delta),
+    };
+    setCardCounts(updated);
+
+    const total = calcCardTotal(updated);
+    onAmountAndCauseTitleChange(total, getCauseTitleForCounts(updated));
   };
 
   const handleSelectImpactCard = (amt: number) => {
@@ -534,10 +548,20 @@ export const LegacyCrowdFundingPage: React.FC<LegacyLegacyCrowdFundingPageProps>
                       <button
                         type="button"
                         onClick={() => handleSelectImpactCard(card.amt)}
-                        className="flex min-w-0 flex-1 items-center justify-center px-2 text-sm font-black tabular-nums hover:bg-[#E05300] active:scale-95 transition-all cursor-pointer"
-                        aria-label={`Add ${card.title} worth ₹${card.amt.toLocaleString('en-IN')}`}
+                        disabled={qty > 0}
+                        className="flex min-w-0 flex-1 items-center justify-center px-2 text-sm font-black tabular-nums hover:bg-[#E05300] active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-[#FF6B00]"
+                        aria-label={qty > 0
+                          ? `${card.title} selected, quantity ${qty}, total ₹${(card.amt * qty).toLocaleString('en-IN')}`
+                          : `Add ${card.title} worth ₹${card.amt.toLocaleString('en-IN')}`}
                       >
-                        ₹{card.amt.toLocaleString('en-IN')}
+                        {qty > 0 ? (
+                          <span className="flex flex-col items-center leading-tight">
+                            <span>Added ({qty})</span>
+                            <span className="text-[10px] font-bold">₹{(card.amt * qty).toLocaleString('en-IN')}</span>
+                          </span>
+                        ) : (
+                          `₹${card.amt.toLocaleString('en-IN')}`
+                        )}
                       </button>
                       <button
                         type="button"
