@@ -235,7 +235,7 @@ export const DonorDetailsTab: React.FC<DonorDetailsTabProps> = ({ donations }) =
                   </td>
                   <td className="px-3 py-2">
                     <p className="font-mono font-semibold">{row.receiptNumber || '—'}</p>
-                    <p className="font-mono text-[10px] text-neutral-500">{row.transactionId || row.paymentRef || '—'}</p>
+                    <p className="font-mono text-[10px] text-neutral-500">{row.paymentRef || row.transactionId || '—'}</p>
                   </td>
                   <td className="px-3 py-2 font-mono">{row.panNumber || '—'}</td>
                   <td className="px-3 py-2 max-w-[180px]">{row.address || '—'}</td>
