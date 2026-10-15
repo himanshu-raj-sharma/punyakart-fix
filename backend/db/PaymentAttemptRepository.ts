@@ -32,6 +32,7 @@ export interface PaymentAttemptRepository {
     now?: Date,
   ): Promise<StoredDonation | null>;
   listPendingForReconciliation(limit: number, olderThan: Date): Promise<StoredDonation[]>;
+  listAdminPending(limit: number): Promise<StoredDonation[]>;
   markReconciliationAttempt(id: string, now: Date): Promise<void>;
   upsertFromLegacy(attempt: StoredDonation): Promise<StoredDonation>;
 }
