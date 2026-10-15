@@ -154,6 +154,30 @@ export class MongoPaymentAttemptRepository implements PaymentAttemptRepository {
     return fromDocument(updated);
   }
 
+  async recordRefundByOrder(
+    orderId: string,
+    reason: string,
+    now = new Date(),
+  ): Promise<StoredDonation | null> {
+    const collection = await this.collection();
+    const updated = await collection.findOneAndUpdate(
+      {
+        razorpayOrderId: orderId,
+        status: { $in: ['initiated', 'pending_verification', 'failed'] },
+      },
+      {
+        $set: {
+          failureReason: `Refund event observed: ${reason.slice(0, 400)}`,
+          lastPaymentFailureAt: now.toISOString(),
+          lastPaymentFailureReason: `Refund event observed: ${reason.slice(0, 400)}`,
+          attemptUpdatedAt: now.toISOString(),
+        },
+      },
+      { returnDocument: 'after' },
+    );
+    return fromDocument(updated);
+  }
+
   async listPendingForReconciliation(limit: number, olderThan: Date): Promise<StoredDonation[]> {
     const safeLimit = Math.max(0, Math.min(100, Math.floor(limit)));
     if (!safeLimit) return [];
