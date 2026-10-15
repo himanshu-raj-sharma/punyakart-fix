@@ -114,10 +114,11 @@ export class CertificateDownloadService {
 }
 
 /**
- * Standalone helper for email / notification paths that do not
- * receive the dependency-injected download service.
+ * Standalone helper for paths that need to record an actual certificate
+ * PDF download but do not receive the dependency-injected download service.
+ * Do not call this when an email is sent: delivery is not download evidence.
  *
- * MongoDB-backed and best-effort, matching the old helper behavior.
+ * MongoDB-backed and best-effort.
  */
 export async function recordCertificateDownloadSafe(
   donation: StoredDonation,
