@@ -78,6 +78,26 @@ test('regression: admin JSON includes saved campaign source, with no Chennai fal
   assert.equal(toAdminDonation({ ...row, source: 'chennai_airport', campaignId: 'c2' }).source, 'chennai_airport', 'conflicting saved history is not rewritten');
 });
 
+test('admin certificate download status does not mistake a sent 80G email for an actual PDF download', async () => {
+  const { service } = fixture();
+  const initiated = await service.initiate(donor, new Date(NOW));
+  const verified = await service.verify(initiated.id, 'pay_EmailTrackingTest', new Date(NOW + 1000));
+  const legacyEmailOnly = toAdminDonation(verified, new Map([[verified.id, {
+    downloadedAt: new Date(NOW + 2000).toISOString(),
+    source: 'email',
+  }]]));
+  assert.equal(legacyEmailOnly.certificateDownloaded, false);
+  assert.equal(legacyEmailOnly.certificateDownloadedAt, '');
+  assert.equal(legacyEmailOnly.certificateDownloadSource, '');
+
+  const actualDownload = toAdminDonation(verified, new Map([[verified.id, {
+    downloadedAt: new Date(NOW + 3000).toISOString(),
+    source: 'public',
+  }]]));
+  assert.equal(actualDownload.certificateDownloaded, true);
+  assert.equal(actualDownload.certificateDownloadSource, 'public');
+});
+
 test('arrival -> SPA navigation -> initiation -> verified persistence -> admin filter and CSV preserve traffic separately', async () => {
   for (const [tag, expected] of [['fb', 'facebook'], ['ig', 'instagram'], ['whatsapp', 'whatsapp'], ['newsletter', 'other']]) {
     const f = fixture();

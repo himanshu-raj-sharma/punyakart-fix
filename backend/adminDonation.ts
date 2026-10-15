@@ -9,7 +9,10 @@ export function toAdminDonation(
   downloads = new Map<string, { downloadedAt: string; source: string }>(),
   receiptDownloads = new Map<string, { downloadedAt: string; source: string }>(),
 ) {
-  const download = downloads.get(d.id);
+  const downloadRecord = downloads.get(d.id);
+  // Historical records wrote a certificate row when the 80G email was sent.
+  // Email delivery is not proof that the recipient downloaded the PDF.
+  const download = downloadRecord?.source === 'email' ? undefined : downloadRecord;
   const receiptDownload = receiptDownloads.get(d.id);
   return {
     id: d.id,
