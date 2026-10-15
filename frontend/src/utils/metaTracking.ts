@@ -239,6 +239,16 @@ export function dispatchMetaAddToCart(
           value,
           items: [{ item_id: id, item_name: name, price: Math.round(unitPrice * 100) / 100, quantity }],
         },
+        meta: {
+          event_name: 'AddToCart',
+          event_id: eventId,
+          value,
+          currency: 'INR',
+          content_ids: [id],
+          content_type: 'product',
+          content_name: name,
+          contents,
+        },
       });
       dispatched = true;
     }
