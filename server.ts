@@ -10,6 +10,7 @@ import { createServer as createViteServer } from 'vite';
 import { rateLimit } from 'express-rate-limit';
 
 import { createBackendServices } from './backend/index.js';
+import { getMongoDb } from './backend/db/mongo.js';
 import { CONTENT_SECURITY_POLICY } from './backend/contentSecurityPolicy.js';
 import { isPrivateBuildPath, PUBLIC_POLL_LIMITS } from './backend/publicAssetPolicy.js';
 
@@ -2106,8 +2107,49 @@ res.type('application/xml').send(
       const rawLimit = Number(req.query.limit || 200);
       const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(500, Math.floor(rawLimit))) : 200;
       const attempts = await donations.listPaymentAttempts(limit);
+      const db = await getMongoDb();
+      const summarizeCollection = async (name: string) => {
+        const rows = await db.collection(name).aggregate([
+          {
+            $group: {
+              _id: { $ifNull: ['$status', 'unknown'] },
+              count: { $sum: 1 },
+              newestTimestamp: { $max: '$timestamp' },
+              oldestTimestamp: { $min: '$timestamp' },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ]).toArray();
+        return {
+          total: rows.reduce((sum, row) => sum + Number(row.count || 0), 0),
+          byStatus: rows.map((row) => ({
+            status: String(row._id || 'unknown'),
+            count: Number(row.count || 0),
+            newestTimestamp: typeof row.newestTimestamp === 'string' ? row.newestTimestamp : '',
+            oldestTimestamp: typeof row.oldestTimestamp === 'string' ? row.oldestTimestamp : '',
+          })),
+        };
+      };
+      const attemptCollectionExists = (await db.listCollections({ name: 'payment_attempts' }, { nameOnly: true }).toArray()).length > 0;
+      const [donationSummary, attemptSummary] = await Promise.all([
+        summarizeCollection('donations'),
+        attemptCollectionExists ? summarizeCollection('payment_attempts') : Promise.resolve({ total: 0, byStatus: [] as Array<{ status: string; count: number; newestTimestamp: string; oldestTimestamp: string }> }),
+      ]);
+      let databaseHost = 'unknown';
+      try {
+        databaseHost = new URL(String(process.env.DATABASE_URL || '')).hostname || 'unknown';
+      } catch {
+        // Never return or log the connection string itself.
+      }
       res.json({
         success: true,
+        diagnostics: {
+          checkedAt: new Date().toISOString(),
+          databaseName: db.databaseName,
+          databaseHost,
+          donations: donationSummary,
+          paymentAttempts: { collectionExists: attemptCollectionExists, ...attemptSummary },
+        },
         attempts: attempts.map((row) => ({
           id: row.id,
           fullName: row.fullName,
