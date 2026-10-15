@@ -99,9 +99,10 @@ export class MongoPaymentAttemptRepository implements PaymentAttemptRepository {
       if (!current) return null;
       if (current.status === 'verified' || current.status === 'refunded') return fromDocument(current);
       const { id: _id, status: _status, ...patch } = updates;
+      const nextStatus = status === 'initiated' ? current.status : status;
       const updated = await collection.findOneAndUpdate(
         { _id: id, status: current.status },
-        { $set: { ...patch, status, attemptUpdatedAt: new Date().toISOString() } },
+        { $set: { ...patch, status: nextStatus, attemptUpdatedAt: new Date().toISOString() } },
         { returnDocument: 'after' },
       );
       if (updated) return fromDocument(updated);
@@ -158,8 +159,11 @@ export class MongoPaymentAttemptRepository implements PaymentAttemptRepository {
     const collection = await this.collection();
     const rows = await collection.find({
       status: { $in: ['initiated', 'pending_verification', 'failed'] },
-      razorpayOrderId: { $exists: true, $nin: ['', null] },
       timestamp: { $lte: olderThan.toISOString() },
+      $or: [
+        { razorpayOrderId: { $exists: true, $nin: ['', null] } },
+        { razorpayQrId: { $exists: true, $nin: ['', null] } },
+      ],
     }).sort({ lastReconciliationAt: 1, timestamp: 1 }).limit(safeLimit).toArray();
     return rows.map(fromDocument).filter((row): row is StoredDonation => Boolean(row));
   }
