@@ -10,7 +10,6 @@ import { createServer as createViteServer } from 'vite';
 import { rateLimit } from 'express-rate-limit';
 
 import { createBackendServices } from './backend/index.js';
-import { createRazorpayPaymentFinder, type RazorpayClientLike } from './backend/razorpayCertificateLookup.js';
 import { CONTENT_SECURITY_POLICY } from './backend/contentSecurityPolicy.js';
 import { isPrivateBuildPath, PUBLIC_POLL_LIMITS } from './backend/publicAssetPolicy.js';
 
@@ -573,15 +572,7 @@ async function startServer() {
 
 
 
-  const { donations, subscriptions, certificateDownloads, receiptDownloads, audit } =
-    await createBackendServices({
-      // Enables explicit payment/order-reference lookups in the 80G portal.
-      // The background reconciler below only verifies orders already linked
-      // to a Punyakart attempt; it never imports every account-wide payment.
-      gatewayLookup: razorpay
-        ? createRazorpayPaymentFinder(razorpay as unknown as RazorpayClientLike)
-        : undefined,
-    });
+  const { donations, subscriptions, certificateDownloads, receiptDownloads, audit } = await createBackendServices();
 
   const paymentReconciliationTimer = setInterval(() => {
     void reconcilePendingPayments(donations);
