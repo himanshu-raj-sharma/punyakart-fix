@@ -52,20 +52,22 @@ This release does not change external gateway settings or Meta UI event rules.
 
 ## GTM and Content Security Policy diagnostics
 
-The site's CSP intentionally does **not** permit `'unsafe-eval'`. The browser
-diagnostic in which `gtm.js` attempts string evaluation commonly indicates a
-Google Tag Manager Custom JavaScript variable or another container feature that
-depends on evaluation. Google's recommended alternative is to replace Custom
-JavaScript variables with built-in variables or Custom Templates; do not loosen
-the site CSP simply to hide the error without reviewing the container.
+The current CSP includes `'unsafe-eval'` in `script-src` to let the
+already-published `GTM-WRK43MWJ` container run its string-evaluation code. The
+policy also permits the observed Google collection endpoint
+`https://stats.g.doubleclick.net` under `connect-src`. These changes address
+the two DevTools blocks; they do **not** fix incorrect tag variables or prove
+that every event is configured correctly.
 
-Review container `GTM-WRK43MWJ` for tags/variables that send Meta `Purchase` or
-`InitiateCheckout`. The site code already emits native browser events with the
-real server-created/verified INR amount and a matching event ID for the opt-in
-Pixel. If GTM also sends those Meta events, it can create duplicate or constant-
-value events. Keep only one deliberate sender per event/Pixels, or explicitly
-supply validated dynamic `value`, `currency`, and event IDs to the chosen GTM
-tag. Do not guess at event parameters or use a fixed donation value.
+The website's native `InitiateCheckout` and verified `Purchase` handlers use
+the server-created donation amount, `INR`, and a stable donation event ID.
+The current source does not have a native `AddToCart` dispatch in its campaign
+cart handlers. Review the published GTM container's Meta tags and custom
+variables: it may be sending duplicate or constant-value `Purchase` and
+`InitiateCheckout` events. Use the actual dynamic amount, currency and event ID,
+and keep one deliberate sender per Pixel/event. The GTM container is managed
+outside this repository, so repository changes alone cannot correct its
+published tag configuration.
 
 The application source loads GTM, Pixel and Clarity only on `punyakart.com` and
 `www.punyakart.com`, and the native event helper now separately blocks native
