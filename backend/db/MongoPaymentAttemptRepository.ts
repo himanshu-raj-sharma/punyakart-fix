@@ -164,6 +164,16 @@ export class MongoPaymentAttemptRepository implements PaymentAttemptRepository {
     return rows.map(fromDocument).filter((row): row is StoredDonation => Boolean(row));
   }
 
+  async listAdminPending(limit: number): Promise<StoredDonation[]> {
+    const safeLimit = Math.max(0, Math.min(500, Math.floor(limit)));
+    if (!safeLimit) return [];
+    const collection = await this.collection();
+    const rows = await collection.find({
+      status: { $in: ['initiated', 'pending_verification', 'failed'] },
+    }).sort({ timestamp: -1, _id: -1 }).limit(safeLimit).toArray();
+    return rows.map(fromDocument).filter((row): row is StoredDonation => Boolean(row));
+  }
+
   async markReconciliationAttempt(id: string, now: Date): Promise<void> {
     await (await this.collection()).updateOne(
       { _id: id, status: { $in: ['initiated', 'pending_verification', 'failed'] } },
