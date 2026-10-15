@@ -48,6 +48,7 @@ export class MongoPaymentAttemptRepository implements PaymentAttemptRepository {
       collection.createIndex({ razorpaySubscriptionId: 1 }, { sparse: true }),
       collection.createIndex({ paymentRef: 1 }, { sparse: true }),
       collection.createIndex({ status: 1, lastReconciliationAt: 1, timestamp: 1 }),
+      collection.createIndex({ status: 1, timestamp: -1 }),
       collection.createIndex({ timestamp: -1 }),
     ]);
     logger.info('MongoDB payment-attempt indexes ensured');
@@ -175,7 +176,14 @@ export class MongoPaymentAttemptRepository implements PaymentAttemptRepository {
     const rows = await collection.find({
       status: { $in: ['initiated', 'pending_verification', 'failed'] },
     }).sort({ timestamp: -1, _id: -1 }).limit(safeLimit).toArray();
-    return rows.map(fromDocument).filter((row): row is StoredDonation => Boolean(row));
+    return rows.map((document) => {
+      const row = fromDocument(document);
+      if (!row) return null;
+      if (!row.failureReason && document.lastPaymentFailureReason) {
+        row.failureReason = document.lastPaymentFailureReason;
+      }
+      return row;
+    }).filter((row): row is StoredDonation => Boolean(row));
   }
 
   async markReconciliationAttempt(id: string, now: Date): Promise<void> {
