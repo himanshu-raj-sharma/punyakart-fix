@@ -2109,25 +2109,32 @@ res.type('application/xml').send(
       const attempts = await donations.listPaymentAttempts(limit);
       const db = await getMongoDb();
       const summarizeCollection = async (name: string) => {
-        const rows = await db.collection(name).aggregate([
-          {
-            $group: {
-              _id: { $ifNull: ['$status', 'unknown'] },
-              count: { $sum: 1 },
-              newestTimestamp: { $max: '$timestamp' },
-              oldestTimestamp: { $min: '$timestamp' },
-            },
-          },
-          { $sort: { _id: 1 } },
-        ]).toArray();
+        const collection = db.collection(name);
+        const statuses = ['verified', 'completed', 'refunded', 'initiated', 'pending_verification', 'failed'];
+        const rows = await Promise.all(statuses.map(async (status) => {
+          const filter = { status };
+          const [count, newest, oldest] = await Promise.all([
+            collection.countDocuments(filter),
+            collection.find(filter, { projection: { timestamp: 1 } }).sort({ timestamp: -1 }).limit(1).next(),
+            collection.find(filter, { projection: { timestamp: 1 } }).sort({ timestamp: 1 }).limit(1).next(),
+          ]);
+          return {
+            status,
+            count,
+            newestTimestamp: typeof newest?.timestamp === 'string' ? newest.timestamp : '',
+            oldestTimestamp: typeof oldest?.timestamp === 'string' ? oldest.timestamp : '',
+          };
+        }));
+        const otherCount = await collection.countDocuments({ status: { $nin: statuses } });
+        if (otherCount) rows.push({
+          status: 'other',
+          count: otherCount,
+          newestTimestamp: '',
+          oldestTimestamp: '',
+        });
         return {
-          total: rows.reduce((sum, row) => sum + Number(row.count || 0), 0),
-          byStatus: rows.map((row) => ({
-            status: String(row._id || 'unknown'),
-            count: Number(row.count || 0),
-            newestTimestamp: typeof row.newestTimestamp === 'string' ? row.newestTimestamp : '',
-            oldestTimestamp: typeof row.oldestTimestamp === 'string' ? row.oldestTimestamp : '',
-          })),
+          total: rows.reduce((sum, row) => sum + row.count, 0),
+          byStatus: rows.filter((row) => row.count > 0),
         };
       };
       const attemptCollectionExists = (await db.listCollections({ name: 'payment_attempts' }, { nameOnly: true }).toArray()).length > 0;
