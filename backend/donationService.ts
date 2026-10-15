@@ -416,13 +416,13 @@ export class DonationService {
     const donation = await this.repository.findByRazorpayOrderId(orderId);
     if (donation) {
       if (isCertificateEligible(donation.status) || donation.status === 'refunded') return donation;
-      // Razorpay can report a failed payment attempt while its order remains
-      // payable; keep the checkout reconcilable so a subsequent retry can succeed.
+      // A failed payment attempt is visible as failed, but remains eligible
+      // for reconciliation because Razorpay orders can accept a later retry.
       // Never overwrite a previously observed refund event before capture reconciliation.
       const failureReason = (donation.failureReason || '').startsWith('Refund event observed:')
         ? donation.failureReason
         : reason;
-      return this.repository.updateStatus(donation.id, donation.status, { failureReason });
+      return this.repository.updateStatus(donation.id, 'failed', { failureReason });
     }
     return this.paymentAttempts?.recordPaymentFailureByOrder(orderId, reason, now) || null;
   }
