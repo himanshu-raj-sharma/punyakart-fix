@@ -100,7 +100,7 @@ export const PaymentAttemptsTab: React.FC<PaymentAttemptsTabProps> = ({ attempts
                   <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${row.status === 'failed'
                     ? 'border-red-200 bg-red-50 text-red-700'
                     : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
-                    {row.status.replaceAll('_', ' ')}
+                    {row.status.replace(/_/g, ' ')}
                   </span>
                 </td>
                 <td className="px-3 py-2">
