@@ -60,3 +60,9 @@ test('admin manual verification cannot promote an unverified Razorpay attempt', 
   assert.match(route, /!\['verified', 'completed'\]\.includes\(current\.status\)/);
   assert.match(route, /captured INR payment/);
 });
+
+test('Razorpay capture webhook recognizes supported QR reference fields safely', async () => {
+  const source = await server();
+  assert.match(source, /typeof payment\?\.qr_code_id === 'string'/);
+  assert.match(source, /typeof payment\?\.qr_code === 'string'/);
+});
