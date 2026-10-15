@@ -4,6 +4,7 @@ import { PunyakartLogo } from '../components/PunyakartLogo';
 import { StatisticsTab } from '../components/admin/StatisticsTab';
 import { StaffReportTab } from '../components/admin/StaffReportTab';
 import { DonorDetailsTab } from '../components/admin/DonorDetailsTab';
+import { PaymentAttemptsTab } from '../components/admin/PaymentAttemptsTab';
 import { CertificateLogTab } from '../components/admin/CertificateLogTab';
 import { Manual80GTab } from '../components/admin/Manual80GTab';
 import { ManualReceiptTab } from '../components/admin/ManualReceiptTab';
@@ -12,6 +13,7 @@ import {
   ADMIN_IDLE_MS,
   ADMIN_LIVE_REFRESH_MS,
   AdminDonation,
+  AdminPaymentAttempt,
   AdminSubscription,
   AdminTab,
   CertificateLogRow,
@@ -44,6 +46,7 @@ const TABS: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
   { id: 'statistics', label: 'Statistics', icon: <BarChart3 className="w-4 h-4" /> },
   { id: 'staff', label: 'Staff report', icon: <Users className="w-4 h-4" /> },
   { id: 'donors', label: 'Donor details', icon: <Wallet className="w-4 h-4" /> },
+  { id: 'payment-attempts', label: 'Payment attempts', icon: <Receipt className="w-4 h-4" /> },
   { id: 'autopay', label: 'Auto Pay', icon: <Repeat className="w-4 h-4" /> },
   { id: 'campaigns', label: 'CMS · Campaigns', icon: <Megaphone className="w-4 h-4" /> },
   { id: 'blogs', label: 'CMS · Blog editor', icon: <BookOpen className="w-4 h-4" /> },
@@ -81,6 +84,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ tab, onTabChange, onLeave 
   const [unassigned, setUnassigned] = useState<FundRaiserRow | null>(null);
   const [eligibleDonations, setEligibleDonations] = useState<AdminDonation[]>([]);
   const [allDonations, setAllDonations] = useState<AdminDonation[]>([]);
+  const [paymentAttempts, setPaymentAttempts] = useState<AdminPaymentAttempt[]>([]);
   const [certificates, setCertificates] = useState<CertificateLogRow[]>([]);
   const [subscriptions, setSubscriptions] = useState<AdminSubscription[]>([]);
   const [campaigns, setCampaigns] = useState<AdminCampaign[]>([]);
@@ -140,6 +144,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ tab, onTabChange, onLeave 
     setUnassigned(null);
     setEligibleDonations([]);
     setAllDonations([]);
+    setPaymentAttempts([]);
     setCertificates([]);
     setSubscriptions([]);
     setCampaigns([]);
@@ -169,7 +174,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ tab, onTabChange, onLeave 
       setErrorMsg(null);
     }
     try {
-      const [summary, eligible, all, certs, subs, campaignResult, blogResult] = await Promise.all([
+      const [summary, eligible, all, attemptsResult, certs, subs, campaignResult, blogResult] = await Promise.all([
         fetchAdminJson<{ fundRaisers: FundRaiserRow[]; unassigned: FundRaiserRow }>(
           '/api/admin/fundraisers',
           trimmed,
@@ -177,6 +182,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ tab, onTabChange, onLeave 
         ),
         fetchAdminJson<{ donations: AdminDonation[] }>('/api/admin/donations?eligible=1', trimmed, init),
         fetchAdminJson<{ donations: AdminDonation[] }>('/api/admin/donations', trimmed, init),
+        fetchAdminJson<{ attempts: AdminPaymentAttempt[] }>('/api/admin/payment-attempts?limit=300', trimmed, init),
         fetchAdminJson<{ certificates: CertificateLogRow[] }>('/api/admin/certificates', trimmed, init),
         fetchAdminJson<{ subscriptions: AdminSubscription[] }>('/api/subscriptions', trimmed, init),
         fetchAdminJson<{ campaigns: AdminCampaign[] }>('/api/admin/campaigns', trimmed, init),
@@ -187,7 +193,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ tab, onTabChange, onLeave 
         lockSession('Session timed out after 5 minutes of inactivity. Enter the admin key again.');
         return;
       }
-      if (![summary?.fundRaisers, eligible?.donations, all?.donations, certs?.certificates,
+      if (![summary?.fundRaisers, eligible?.donations, all?.donations, attemptsResult?.attempts, certs?.certificates,
         subs?.subscriptions, campaignResult?.campaigns, blogResult?.blogs].every(Array.isArray)) {
         throw new Error('The admin API returned incomplete data. Please refresh again.');
       }
@@ -196,6 +202,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ tab, onTabChange, onLeave 
       setUnassigned(summary.unassigned || null);
       setEligibleDonations(eligible.donations || []);
       setAllDonations(all.donations || []);
+      setPaymentAttempts(attemptsResult.attempts || []);
       setCertificates(certs.certificates || []);
       setSubscriptions(subs.subscriptions || []);
       setCampaigns(campaignResult.campaigns || []);
@@ -443,6 +450,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ tab, onTabChange, onLeave 
                 />
               )}
               {tab === 'donors' && <DonorDetailsTab donations={filteredAllDonations} />}
+              {tab === 'payment-attempts' && <PaymentAttemptsTab attempts={paymentAttempts} />}
               {tab === 'autopay' && <AutoPayTab subscriptions={subscriptions} />}
               {tab === 'certificates' && <CertificateLogTab certificates={certificates} />}
               {tab === 'receipt' && (
