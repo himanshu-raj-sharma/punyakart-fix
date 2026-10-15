@@ -1,6 +1,7 @@
 import { initialSubscriptions } from './seedData';
 import { DonationService } from './donationService';
 import { MongoDonationRepository } from './db/MongoDonationRepository';
+import { MongoPaymentAttemptRepository } from './db/MongoPaymentAttemptRepository';
 import { MongoSubscriptionRepository } from './db/MongoSubscriptionRepository';
 import { SubscriptionService } from './subscriptionService';
 import { GatewayPaymentFinder } from './razorpayCertificateLookup';
@@ -37,6 +38,7 @@ export async function createBackendServices(
   }
 
   const donationRepo = new MongoDonationRepository();
+  const paymentAttemptRepo = new MongoPaymentAttemptRepository();
 
   const subscriptionRepo = new MongoSubscriptionRepository();
 
@@ -72,6 +74,7 @@ export async function createBackendServices(
    */
   await Promise.all([
     donationRepo.ensureIndexes(),
+    paymentAttemptRepo.ensureIndexes(),
     subscriptionRepo.ensureIndexes(),
     certificateDownloadRepo.ensureIndexes(),
     receiptDownloadRepo.ensureIndexes(),
@@ -105,6 +108,8 @@ export async function createBackendServices(
     donationRepo,
     subscriptions,
     options?.gatewayLookup,
+    undefined,
+    paymentAttemptRepo,
   );
 
   logger.info(
@@ -116,6 +121,7 @@ export async function createBackendServices(
   return {
     donations,
     subscriptions,
+    paymentAttempts: paymentAttemptRepo,
     certificateDownloads,
     receiptDownloads,
     audit,
