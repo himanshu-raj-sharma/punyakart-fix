@@ -275,6 +275,16 @@ test('AddToCart sends dynamic INR value, quantity, and a stable-per-event ID to 
     value: 1248,
     items: [{ item_id: 't-green-grass', item_name: 'Fresh Green Grass for Gau Mata', price: 416, quantity: 3 }],
   });
+  assert.deepEqual(dataLayer[0].meta, {
+    event_name: 'AddToCart',
+    event_id: eventId,
+    value: 1248,
+    currency: 'INR',
+    content_ids: ['t-green-grass'],
+    content_type: 'product',
+    content_name: 'Fresh Green Grass for Gau Mata',
+    contents: [{ id: 't-green-grass', quantity: 3, item_price: 416 }],
+  });
 });
 
 test('AddToCart rejects invalid cart values and does not dispatch Pixel or dataLayer events', () => {
