@@ -132,8 +132,11 @@ function makeFixture() {
       const row = [...attempts.values()].find(item => item.razorpayOrderId === orderId);
       if (!row) return null;
       failureNotes.set(row.id, reason);
-      // A failed payment attempt does not terminally fail the Razorpay order.
-      return structuredClone(row);
+      // Mirror production: a failed payment event marks the attempt failed,
+      // while keeping it eligible for reconciliation after a later capture.
+      const saved = { ...row, status: 'failed' as const, failureReason: reason };
+      attempts.set(saved.id, structuredClone(saved));
+      return structuredClone(saved);
     },
     async recordRefundByOrder(orderId, reason) {
       const row = [...attempts.values()].find(item => item.razorpayOrderId === orderId);
@@ -216,7 +219,7 @@ test('a failed payment attempt keeps the checkout reconcilable for a later captu
     new Date(NOW.getTime() + 1000),
   );
   assert.equal(failed?.id, attempt.id);
-  assert.equal(fixture.attempts.get(attempt.id)?.status, 'initiated', 'test adapter records failure details without terminating the order');
+  assert.equal(fixture.attempts.get(attempt.id)?.status, 'failed', 'failed attempts remain eligible for reconciliation');
   assert.equal(fixture.failureNotes.get(attempt.id), 'Synthetic customer timeout');
 
   const payment = {
