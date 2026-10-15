@@ -2042,6 +2042,19 @@ res.type('application/xml').send(
 
     try {
 
+      const current = await donations.findById(req.params.id);
+      if (!current) throw new BusinessError('Donation not found', 'NOT_FOUND');
+
+      // Manual confirmation is allowed for offline methods only. A Razorpay
+      // attempt must pass gateway capture/signature/order/amount verification;
+      // the admin endpoint must not manufacture a confirmed donation by ID.
+      if (current.paymentMethod === 'razorpay' && !['verified', 'completed'].includes(current.status)) {
+        throw new BusinessError(
+          'Razorpay payments can only be verified after the server confirms a captured INR payment.',
+          'VALIDATION_ERROR',
+        );
+      }
+
       const paymentRef = req.body.paymentRef || 'manual_verification';
 
       const result = await donations.verify(req.params.id, paymentRef);
