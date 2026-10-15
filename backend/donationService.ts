@@ -79,13 +79,14 @@ export class DonationService {
     const safeLimit = Math.max(0, Math.min(500, Math.floor(limit)));
     if (!safeLimit) return [];
     const [legacyRows, separateRows] = await Promise.all([
-      this.repository.listAll(),
+      this.repository.listPendingForAdmin
+        ? this.repository.listPendingForAdmin(safeLimit)
+        : this.repository.listAll().then((records) =>
+            records.filter((row) => ['initiated', 'pending_verification', 'failed'].includes(row.status))),
       this.paymentAttempts?.listAdminPending(safeLimit) || Promise.resolve([]),
     ]);
     const rows = new Map<string, StoredDonation>();
-    for (const row of legacyRows) {
-      if (['initiated', 'pending_verification', 'failed'].includes(row.status)) rows.set(row.id, row);
-    }
+    for (const row of legacyRows) rows.set(row.id, row);
     for (const row of separateRows) rows.set(row.id, row);
     return [...rows.values()]
       .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
