@@ -27,6 +27,7 @@ const originalConnectSources = [
   'https://www.google.com',
   'https://www.googleadservices.com',
   'https://googleads.g.doubleclick.net',
+  'https://stats.g.doubleclick.net',
   'https://pagead2.googlesyndication.com',
   'https://ad.doubleclick.net',
 ];
@@ -40,7 +41,7 @@ const clarityConnectSources = ['https://*.clarity.ms', 'https://c.bing.com'];
 const directives = CONTENT_SECURITY_POLICY.split('; ').map(value => value.split(/\s+/));
 const connectSources = directives.find(([name]) => name === 'connect-src')!.slice(1);
 
-test('connect-src permits Clarity telemetry and the exact observed Meta Pixel event endpoint', () => {
+test('connect-src permits GTM/Google collection, Clarity telemetry, and the observed Meta Pixel event endpoints', () => {
   assert.deepEqual(connectSources, [...originalConnectSources.slice(0, 6), ...clarityConnectSources, ...originalConnectSources.slice(6), ...gatewayOrigins]);
   assert.equal(directives.filter(([name]) => name === 'connect-src').length, 1);
   assert.ok(connectSources.includes('https://*.clarity.ms'));
@@ -52,8 +53,9 @@ test('connect-src permits Clarity telemetry and the exact observed Meta Pixel ev
   }
 });
 
-test('script directives allow exact Clarity and Meta parameter-builder scripts without broad CDN trust', () => {
+test('script directives allow the configured GTM evaluation and exact Clarity/Meta scripts without broad CDN trust', () => {
   const originalScripts = "'self' 'unsafe-inline' https://checkout.razorpay.com https://cdn.razorpay.com https://connect.facebook.net https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://www.google.com";
+  const gtmScriptSources = originalScripts.replace("'unsafe-inline'", "'unsafe-inline' 'unsafe-eval'");
   assert.ok(!directives.find(([name]) => name === 'script-src')!.includes('https://cdn.jsdelivr.net'));
   assert.ok(!directives.find(([name]) => name === 'script-src-elem')!.includes('https://unpkg.com'));
   assert.ok(!directives.find(([name]) => name === 'script-src-elem')!.includes("'unsafe-eval'"));
@@ -64,7 +66,7 @@ test('script directives allow exact Clarity and Meta parameter-builder scripts w
     "img-src 'self' data: blob: https:",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
-    `script-src ${originalScripts.split(' https://www.googletagmanager.com')[0]} ${clarityScriptOrigin} ${clarityNestedScriptOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://www.google.com ${metaSetupScript} ${metaParamBuilderScripts.join(' ')}`,
+    `script-src ${gtmScriptSources.split(' https://www.googletagmanager.com')[0]} ${clarityScriptOrigin} ${clarityNestedScriptOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://www.google.com ${metaSetupScript} ${metaParamBuilderScripts.join(' ')}`,
     `script-src-elem ${originalScripts.split(' https://www.googletagmanager.com')[0]} ${clarityScriptOrigin} ${clarityNestedScriptOrigin} https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://www.google.com ${metaSetupScript} ${metaParamBuilderScripts.join(' ')}`,
     "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://www.googletagmanager.com https://www.facebook.com",
   ]);
@@ -92,7 +94,11 @@ test('Meta setup bootstrap is permitted for either Pixel without trusting all Fa
     assert.ok(sources.includes(metaSetupScript), `${directive} must allow the setup script`);
     assert.ok(!sources.includes('https://www.facebook.com'));
     assert.ok(!sources.includes('https://*.facebook.com'));
-    assert.ok(!sources.includes("'unsafe-eval'"));
+    if (directive === 'script-src') {
+      assert.ok(sources.includes("'unsafe-eval'"), 'configured GTM custom JavaScript is permitted');
+    } else {
+      assert.ok(!sources.includes("'unsafe-eval'"), 'eval is not needed for script elements');
+    }
     for (const pixel of ['922745934005234', '1112592431188643']) {
       // CSP path sources allow the same script with query parameters. No real token needed.
       const request = new URL(`${metaSetupScript}?pixel_id=${pixel}&from_extension=true`);
