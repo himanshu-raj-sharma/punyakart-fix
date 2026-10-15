@@ -313,13 +313,14 @@ export class DonationService {
     const receiptNumber = (attempt.receiptNumber || '').trim() || await this.repository.nextReceiptNumber(now);
     const verifiedAt = attempt.verifiedAt || now.toISOString();
     const refundObserved = (attempt.failureReason || '').startsWith('Refund event observed:');
+    const { failureReason: _priorFailureReason, ...attemptWithoutFailure } = attempt;
     const candidate: StoredDonation = {
-      ...attempt,
+      ...attemptWithoutFailure,
       status: 'verified',
       verifiedAt,
       receiptNumber,
       paymentRef,
-      ...(refundObserved ? { failureReason: attempt.failureReason } : { failureReason: undefined }),
+      ...(refundObserved && attempt.failureReason ? { failureReason: attempt.failureReason } : {}),
     };
 
     // Insert-only by donation ID, order ID, and payment ID makes delayed or
