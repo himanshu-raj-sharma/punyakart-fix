@@ -74,6 +74,7 @@ export type AdminTab =
   | 'statistics'
   | 'staff'
   | 'donors'
+  | 'payment-attempts'
   | 'certificates'
   | 'manual'
   | 'receipt'
@@ -119,6 +120,22 @@ export interface AdminBlog {
   published_at: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface AdminPaymentAttempt {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  amount: number;
+  causeTitle: string;
+  source: string;
+  campaignId: string;
+  status: string;
+  timestamp: string;
+  razorpayOrderId: string;
+  razorpaySubscriptionId: string;
+  failureReason: string;
 }
 
 export interface AdminSubscription {
