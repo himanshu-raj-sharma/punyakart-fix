@@ -539,7 +539,14 @@ export class DonationService {
     const donation = this.repository.findByPaymentRef
       ? await this.repository.findByPaymentRef(paymentRef)
       : (await this.repository.listAll()).find((row) => row.paymentRef === paymentRef);
-    if (donation) return this.markRefunded(donation.id, reason);
+    if (donation && (isCertificateEligible(donation.status) || donation.status === 'refunded')) {
+      return this.markRefunded(donation.id, reason);
+    }
+    if (donation) {
+      return this.repository.updateStatus(donation.id, donation.status, {
+        failureReason: `Refund event observed: ${reason.slice(0, 400)}`,
+      });
+    }
     const attempt = await this.paymentAttempts?.findByPaymentRef(paymentRef);
     if (!attempt) return null;
     if (attempt.razorpayOrderId) {
