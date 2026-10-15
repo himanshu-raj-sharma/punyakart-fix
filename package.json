@@ -21,7 +21,8 @@
     "migrate:dev": "tsx backend/db/migrate.ts",
     "pack": "bash scripts/pack-hostinger.sh",
     "pack:hostinger": "python scripts/pack_hostinger.py",
-    "migrate:payment-attempts": "tsx scripts/migrate-payment-attempts.ts"
+    "migrate:payment-attempts": "tsx scripts/migrate-payment-attempts.ts",
+    "test:payment-attempts": "tsx --test tests/paymentAttemptFlow.test.ts"
   },
   "engines": {
     "node": ">=20"
