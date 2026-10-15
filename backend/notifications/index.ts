@@ -2,7 +2,6 @@ import logger from '../logger';
 import { CertificateDetails, StoredDonation } from '../types';
 import { send80GCertificateEmail, getEmailStatus } from './emailService';
 import { sendWhatsAppThankYou, getWhatsAppStatus } from './whatsappService';
-import { recordCertificateDownloadSafe } from '../certificateDownloadService';
 
 const PENDING_ITR = 'Pending registration — not valid for ITR';
 
@@ -42,10 +41,6 @@ export async function notifyDonorAfterVerification(donation: StoredDonation): Pr
     sendWhatsAppThankYou(donation),
     send80GCertificateEmail(donation, cert),
   ]);
-
-  if (email.sent) {
-    recordCertificateDownloadSafe(donation, 'email');
-  }
 
   logger.info(
     {
