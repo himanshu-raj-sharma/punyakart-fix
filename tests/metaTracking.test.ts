@@ -292,8 +292,7 @@ test('AddToCart rejects invalid cart values and does not dispatch Pixel or dataL
     { id: 'x', name: 'Product', unitPrice: 0, quantity: 1 },
     { id: 'x', name: 'Product', unitPrice: 100, quantity: 0 },
     { id: 'x', name: 'Product', unitPrice: 100, quantity: 1.5 },
-    { id: 'x', name: 'Product', unitPrice: 100, quantity: 1, },
-  ].slice(0, 3)) {
+  ]) {
     const calls: unknown[][] = [];
     assert.equal(dispatchMetaAddToCart(item, (...args: unknown[]) => calls.push(args)), false);
     assert.equal(calls.length, 0);
