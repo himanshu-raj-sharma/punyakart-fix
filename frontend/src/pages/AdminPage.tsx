@@ -14,6 +14,7 @@ import {
   ADMIN_LIVE_REFRESH_MS,
   AdminDonation,
   AdminPaymentAttempt,
+  AdminPaymentSyncDiagnostics,
   AdminSubscription,
   AdminTab,
   CertificateLogRow,
@@ -85,6 +86,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ tab, onTabChange, onLeave 
   const [eligibleDonations, setEligibleDonations] = useState<AdminDonation[]>([]);
   const [allDonations, setAllDonations] = useState<AdminDonation[]>([]);
   const [paymentAttempts, setPaymentAttempts] = useState<AdminPaymentAttempt[]>([]);
+  const [paymentSyncDiagnostics, setPaymentSyncDiagnostics] = useState<AdminPaymentSyncDiagnostics | null>(null);
   const [certificates, setCertificates] = useState<CertificateLogRow[]>([]);
   const [subscriptions, setSubscriptions] = useState<AdminSubscription[]>([]);
   const [campaigns, setCampaigns] = useState<AdminCampaign[]>([]);
@@ -145,6 +147,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ tab, onTabChange, onLeave 
     setEligibleDonations([]);
     setAllDonations([]);
     setPaymentAttempts([]);
+    setPaymentSyncDiagnostics(null);
     setCertificates([]);
     setSubscriptions([]);
     setCampaigns([]);
@@ -182,7 +185,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ tab, onTabChange, onLeave 
         ),
         fetchAdminJson<{ donations: AdminDonation[] }>('/api/admin/donations?eligible=1', trimmed, init),
         fetchAdminJson<{ donations: AdminDonation[] }>('/api/admin/donations', trimmed, init),
-        fetchAdminJson<{ attempts: AdminPaymentAttempt[] }>('/api/admin/payment-attempts?limit=300', trimmed, init),
+        fetchAdminJson<{ attempts: AdminPaymentAttempt[]; diagnostics: AdminPaymentSyncDiagnostics }>('/api/admin/payment-attempts?limit=300', trimmed, init),
         fetchAdminJson<{ certificates: CertificateLogRow[] }>('/api/admin/certificates', trimmed, init),
         fetchAdminJson<{ subscriptions: AdminSubscription[] }>('/api/subscriptions', trimmed, init),
         fetchAdminJson<{ campaigns: AdminCampaign[] }>('/api/admin/campaigns', trimmed, init),
@@ -203,6 +206,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ tab, onTabChange, onLeave 
       setEligibleDonations(eligible.donations || []);
       setAllDonations(all.donations || []);
       setPaymentAttempts(attemptsResult.attempts || []);
+      setPaymentSyncDiagnostics(attemptsResult.diagnostics || null);
       setCertificates(certs.certificates || []);
       setSubscriptions(subs.subscriptions || []);
       setCampaigns(campaignResult.campaigns || []);
@@ -450,7 +454,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ tab, onTabChange, onLeave 
                 />
               )}
               {tab === 'donors' && <DonorDetailsTab donations={filteredAllDonations} />}
-              {tab === 'payment-attempts' && <PaymentAttemptsTab attempts={paymentAttempts} />}
+              {tab === 'payment-attempts' && <PaymentAttemptsTab attempts={paymentAttempts} diagnostics={paymentSyncDiagnostics} />}
               {tab === 'autopay' && <AutoPayTab subscriptions={subscriptions} />}
               {tab === 'certificates' && <CertificateLogTab certificates={certificates} />}
               {tab === 'receipt' && (
