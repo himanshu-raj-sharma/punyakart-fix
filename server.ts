@@ -1735,7 +1735,11 @@ res.type('application/xml').send(
 
         const paymentId = payment?.id as string | undefined;
 
-        const qrCodeId = payment?.qr_code as string | undefined;
+        const qrCodeId = typeof payment?.qr_code_id === 'string'
+          ? payment.qr_code_id
+          : typeof payment?.qr_code === 'string'
+            ? payment.qr_code
+            : undefined;
 
         const donationId = payment?.notes?.donation_id as string | undefined;
 
