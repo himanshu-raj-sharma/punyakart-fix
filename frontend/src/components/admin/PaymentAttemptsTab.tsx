@@ -1,15 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
-import type { AdminPaymentAttempt } from '../../admin/adminTypes';
+import type { AdminPaymentAttempt, AdminPaymentSyncDiagnostics } from '../../admin/adminTypes';
 import { formatMoney, formatWhen } from '../../admin/adminApi';
 
 interface PaymentAttemptsTabProps {
   attempts: AdminPaymentAttempt[];
+  diagnostics: AdminPaymentSyncDiagnostics | null;
 }
 
 type AttemptFilter = 'all' | 'pending' | 'failed';
 
-export const PaymentAttemptsTab: React.FC<PaymentAttemptsTabProps> = ({ attempts }) => {
+export const PaymentAttemptsTab: React.FC<PaymentAttemptsTabProps> = ({ attempts, diagnostics }) => {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<AttemptFilter>('all');
 
@@ -37,6 +38,35 @@ export const PaymentAttemptsTab: React.FC<PaymentAttemptsTabProps> = ({ attempts
           These are checkout attempts, not confirmed donations. Only payments verified as captured appear in Donor Details and donation totals.
         </p>
       </div>
+
+      {diagnostics && (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-[10px] font-black uppercase tracking-wide text-neutral-500">Production database</p>
+            <p className="mt-1 break-all font-mono text-xs font-bold text-neutral-900 dark:text-white">
+              {diagnostics.databaseHost}/{diagnostics.databaseName}
+            </p>
+            <p className="mt-1 text-[10px] text-neutral-500">
+              Checked {formatWhen(diagnostics.checkedAt)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-[10px] font-black uppercase tracking-wide text-neutral-500">MongoDB collection counts</p>
+            <p className="mt-1 text-xs font-bold text-neutral-900 dark:text-white">
+              donations: {diagnostics.donations.total} · payment_attempts: {diagnostics.paymentAttempts.total}
+            </p>
+            <p className="mt-1 text-[10px] text-neutral-500">
+              Attempts collection {diagnostics.paymentAttempts.collectionExists ? 'exists' : 'not yet created'}
+            </p>
+            <p className="mt-1 text-[10px] text-neutral-500">
+              Donations statuses: {diagnostics.donations.byStatus.map((row) => `${row.status} ${row.count}`).join(' · ') || 'empty'}
+            </p>
+            <p className="mt-1 text-[10px] text-neutral-500">
+              Attempt statuses: {diagnostics.paymentAttempts.byStatus.map((row) => `${row.status} ${row.count}`).join(' · ') || 'empty'}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         {([
