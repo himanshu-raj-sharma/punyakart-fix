@@ -78,7 +78,8 @@ function makeFixture() {
     async allocateReceiptNumber(id: string) {
       const row = donations.get(id);
       if (row?.receiptNumber) return row.receiptNumber;
-      return this.nextReceiptNumber();
+      receiptSequence += 1;
+      return `PKF-2026-27-${String(receiptSequence).padStart(6, '0')}`;
     },
     async upsertVerified(row: StoredDonation) {
       const existing = donations.get(row.id) ||
@@ -134,10 +135,21 @@ function makeFixture() {
       // A failed payment attempt does not terminally fail the Razorpay order.
       return structuredClone(row);
     },
+    async recordRefundByOrder(orderId, reason) {
+      const row = [...attempts.values()].find(item => item.razorpayOrderId === orderId);
+      if (!row) return null;
+      const saved = { ...row, failureReason: `Refund event observed: ${reason}` };
+      attempts.set(saved.id, structuredClone(saved));
+      return structuredClone(saved);
+    },
     async listPendingForReconciliation(limit, olderThan) {
       return [...attempts.values()]
         .filter(row => ['initiated', 'pending_verification', 'failed'].includes(row.status) &&
           Date.parse(row.timestamp) <= olderThan.getTime())
+        .slice(0, limit).map(row => structuredClone(row));
+    },
+    async listAdminPending(limit) {
+      return [...attempts.values()].filter(row => ['initiated', 'pending_verification', 'failed'].includes(row.status))
         .slice(0, limit).map(row => structuredClone(row));
     },
     async markReconciliationAttempt() {},
@@ -221,6 +233,32 @@ test('a failed payment attempt keeps the checkout reconcilable for a later captu
   assert.equal(verified.status, 'verified');
   assert.equal(fixture.donations.size, 1);
   assert.equal(fixture.attempts.get(attempt.id)?.status, 'verified');
+});
+
+test('a refund webhook arriving before capture remains reconcilable and is retained as refunded only after capture', async () => {
+  const fixture = makeFixture();
+  const attempt = await fixture.service.initiate(donor, NOW);
+  await fixture.service.attachRazorpayOrder(attempt.id, 'order_refund_first');
+  await fixture.service.refundByRazorpayOrder('order_refund_first', 'Synthetic refund event before capture');
+  assert.equal(fixture.attempts.get(attempt.id)?.status, 'initiated');
+  assert.match(fixture.attempts.get(attempt.id)?.failureReason || '', /^Refund event observed:/);
+  assert.equal(fixture.donations.has(attempt.id), false);
+
+  const payment = {
+    id: 'pay_refund_first',
+    order_id: 'order_refund_first',
+    amount: 50100,
+    currency: 'INR',
+    status: 'captured',
+    captured: true,
+  };
+  const finalized = await verifyCapturedDonation(
+    fixture.service, fixture.meta, (await fixture.service.findById(attempt.id))!, payment,
+  );
+  assert.equal(finalized.status, 'refunded');
+  assert.equal(fixture.donations.get(attempt.id)?.status, 'refunded');
+  assert.equal(fixture.attempts.get(attempt.id)?.status, 'verified');
+  assert.equal(fixture.notifications(), 0);
 });
 
 test('admin donation list excludes initiated checkout attempts', async () => {
