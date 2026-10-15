@@ -450,12 +450,23 @@ export class MongoDonationRepository
     const safeLimit = Math.max(0, Math.min(100, Math.floor(limit)));
     if (!safeLimit) return [];
     const collection = await this.getCollection();
+    const olderThanIso = olderThan.toISOString();
     const records = await collection.find({
       status: { $in: ['initiated', 'pending_verification', 'failed'] },
-      timestamp: { $lte: olderThan.toISOString() },
-      $or: [
-        { razorpayOrderId: { $exists: true, $nin: ['', null] } },
-        { razorpayQrId: { $exists: true, $nin: ['', null] } },
+      timestamp: { $lte: olderThanIso },
+      $and: [
+        {
+          $or: [
+            { lastReconciliationAt: { $exists: false } },
+            { lastReconciliationAt: { $lte: olderThanIso } },
+          ],
+        },
+        {
+          $or: [
+            { razorpayOrderId: { $exists: true, $nin: ['', null] } },
+            { razorpayQrId: { $exists: true, $nin: ['', null] } },
+          ],
+        },
       ],
     }).sort({ lastReconciliationAt: 1, timestamp: 1 }).limit(safeLimit).toArray();
     return records.map(fromDocument).filter((row): row is StoredDonation => Boolean(row));
