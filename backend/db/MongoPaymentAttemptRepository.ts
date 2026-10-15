@@ -144,8 +144,10 @@ export class MongoPaymentAttemptRepository implements PaymentAttemptRepository {
       },
       {
         $set: {
+          status: 'failed',
           lastPaymentFailureAt: now.toISOString(),
           lastPaymentFailureReason: reason.slice(0, 500),
+          failureReason: reason.slice(0, 500),
           attemptUpdatedAt: now.toISOString(),
         },
       },
