@@ -45,6 +45,7 @@ export interface DonationRepository {
   listEligible(): Promise<StoredDonation[]>;
 
   listAll(): Promise<StoredDonation[]>;
+  listPendingForAdmin?(limit: number): Promise<StoredDonation[]>;
 
   /** Legacy unverified rows are reconciled until the one-time archive migration is run. */
   listPendingForReconciliation?(limit: number, olderThan: Date): Promise<StoredDonation[]>;
