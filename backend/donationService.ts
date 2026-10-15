@@ -172,9 +172,12 @@ export class DonationService {
 
   private async updateCheckoutRecord(id: string, updates: Partial<StoredDonation>): Promise<StoredDonation> {
     const existingDonation = await this.repository.findById(id);
+    const existingAttempt = existingDonation ? null : await this.paymentAttempts?.findById(id);
     const updated = existingDonation
       ? await this.repository.updateStatus(id, existingDonation.status, updates)
-      : await this.paymentAttempts?.updateStatus(id, 'initiated', updates);
+      : existingAttempt
+        ? await this.paymentAttempts?.updateStatus(id, existingAttempt.status, updates)
+        : null;
     if (!updated) throw new BusinessError('Donation/payment attempt not found', 'NOT_FOUND');
     return updated;
   }
