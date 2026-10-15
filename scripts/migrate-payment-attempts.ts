@@ -7,10 +7,6 @@ const APPLY = process.argv.includes('--apply');
 const BACKUP_CONFIRMED = process.argv.includes('--backup-confirmed');
 const PENDING_STATUSES = ['initiated', 'pending_verification', 'failed'] as const;
 
-if (APPLY && !BACKUP_CONFIRMED) {
-  throw new Error('Refusing to move production records without --backup-confirmed. Take and verify an Atlas backup first.');
-}
-
 function fromLegacyDocument(document: Record<string, unknown>): StoredDonation {
   const {
     _id: _idIgnored,
@@ -34,6 +30,15 @@ function fromLegacyDocument(document: Record<string, unknown>): StoredDonation {
  * Confirmed donations are never touched.
  */
 async function main(): Promise<void> {
+  if (APPLY && !BACKUP_CONFIRMED) {
+    throw new Error('Refusing to move records without --backup-confirmed. Take and verify an Atlas backup first.');
+  }
+  if (APPLY && process.env.NODE_ENV !== 'production') {
+    throw new Error('Apply mode requires NODE_ENV=production to reduce the risk of targeting a local/dev database.');
+  }
+  if (APPLY && !process.env.DATABASE_URL?.startsWith('mongodb+srv://')) {
+    throw new Error('Apply mode requires DATABASE_URL to use a MongoDB Atlas mongodb+srv:// connection.');
+  }
   const db = await getMongoDb();
   const donations = db.collection<Record<string, unknown>>('donations');
   const attempts = new MongoPaymentAttemptRepository();
