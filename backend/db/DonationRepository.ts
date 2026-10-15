@@ -46,6 +46,10 @@ export interface DonationRepository {
 
   listAll(): Promise<StoredDonation[]>;
 
+  /** Legacy unverified rows are reconciled until the one-time archive migration is run. */
+  listPendingForReconciliation?(limit: number, olderThan: Date): Promise<StoredDonation[]>;
+  markReconciliationAttempt?(id: string, now: Date): Promise<void>;
+
   searchForCertificate(
     query: string,
   ): Promise<StoredDonation | null>;
