@@ -59,7 +59,8 @@ export class CertificateDownloadService {
         panNumber: donation.panNumber || existing.panNumber,
         downloadedAt,
         source,
-        downloadCount: (existing.downloadCount || 1) + 1,
+        // A legacy email record isn't a user download, so the first real download starts at one.
+        downloadCount: existing.source === 'email' ? 1 : (existing.downloadCount || 1) + 1,
       };
 
       await this.repository.upsert(updated);
