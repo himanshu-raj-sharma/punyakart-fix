@@ -93,7 +93,7 @@ without a matching attempt require a separate, per-payment investigation.
 (`RAZORPAY_KEY_ID` + `RAZORPAY_KEY_SECRET`) must be from the same Razorpay mode
 (test or live). Never paste secret values into chat or commit them to GitHub.
 
-## v14 — campaign route reliability release
+## v14 historical release notes — campaign route reliability
 
 This release enforces **₹200 minimum for every new donation, including
 Chennai Airport**, in public forms, shared checkout, backend and new manual
@@ -126,9 +126,9 @@ recovery after process crashes and global duplicate-payment protection across
 independent import/recurring paths remain follow-up work. Keep live environment
 settings and media backups; do not run `npm run test:backend` against production.
 
-## Ready-to-upload ZIP
+## Historical v14 ZIP reference
 
-File: **punyakart-hostinger-campaign-routes-v14.zip** in the project folder.
+Historical archive name: **punyakart-hostinger-campaign-routes-v14.zip**. It does not contain this payment-ledger release candidate.
 This release includes the latest Navratri copy and hero styling, the shared
 Thursday/C5 campaign layout, fixed public header, shared public footer, and
 campaign-specific recent-donor popup. It retains traffic attribution, donation
@@ -348,8 +348,8 @@ python scripts/pack_hostinger.py --temp-dir "C:\path\to\approved-temp-dir" --out
 ```
 
 It runs TypeScript, isolated CSP/donation tests, Meta CAPI/consent/payment-flow tests,
-traffic capture/admin/persistence-flow tests, and Navratri page/discovery/integration
-tests, then
+traffic capture/admin/persistence-flow tests, the isolated payment-attempt/reconciliation
+tests, and Navratri page/discovery/integration tests, then
 builds in a temporary folder without
 clearing workspace dist/media, checks bundle syntax, checks ZIP integrity and
 required files, and confirms the CSP gateway origins, the setup bootstrap script
