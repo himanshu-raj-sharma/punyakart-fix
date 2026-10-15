@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { DonationModal } from '../frontend/src/components/DonationModal';
 import { LegalPage } from '../frontend/src/pages/LegalPage';
 import {
-  collectMetaTrackingPayload, createMetaTrackingPayload, dispatchMetaInitiateCheckout, dispatchMetaPurchase, isAllowedMetaBrowserHost,
+  collectMetaTrackingPayload, createMetaTrackingPayload, dispatchMetaAddToCart, dispatchMetaInitiateCheckout, dispatchMetaPurchase, isAllowedMetaBrowserHost,
   type VerifiedMetaDonation,
 } from '../frontend/src/utils/metaTracking';
 
@@ -236,6 +236,59 @@ test('privacy disclosure distinguishes optional checkout sharing, identifiable h
   assert.match(html, /not existing sitewide Meta PageView tracking/);
 });
 
+
+test('AddToCart sends dynamic INR value, quantity, and a stable-per-event ID to the legacy Pixel and dataLayer', () => {
+  const calls: unknown[][] = [];
+  const dataLayer: Array<Record<string, unknown>> = [];
+  const fbq = (...args: unknown[]) => calls.push(args);
+
+  withGlobals({
+    window: { value: { location: { hostname: 'punyakart.com' }, dataLayer } },
+  }, () => {
+    assert.equal(dispatchMetaAddToCart({
+      id: 't-green-grass',
+      name: 'Fresh Green Grass for Gau Mata',
+      unitPrice: 416,
+      quantity: 3,
+    }, fbq), true);
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], 'trackSingle');
+  assert.equal(calls[0][1], legacyPixel);
+  assert.equal(calls[0][2], 'AddToCart');
+  assert.deepEqual(calls[0][3], {
+    value: 1248,
+    currency: 'INR',
+    content_ids: ['t-green-grass'],
+    content_type: 'product',
+    content_name: 'Fresh Green Grass for Gau Mata',
+    contents: [{ id: 't-green-grass', quantity: 3, item_price: 416 }],
+  });
+  const eventId = (calls[0][4] as { eventID: string }).eventID;
+  assert.match(eventId, /^atc_[A-Za-z0-9_-]+$/);
+  assert.equal(dataLayer.length, 1);
+  assert.equal(dataLayer[0].event, 'add_to_cart');
+  assert.equal(dataLayer[0].event_id, eventId);
+  assert.deepEqual(dataLayer[0].ecommerce, {
+    currency: 'INR',
+    value: 1248,
+    items: [{ item_id: 't-green-grass', item_name: 'Fresh Green Grass for Gau Mata', price: 416, quantity: 3 }],
+  });
+});
+
+test('AddToCart rejects invalid cart values and does not dispatch Pixel or dataLayer events', () => {
+  for (const item of [
+    { id: 'x', name: 'Product', unitPrice: 0, quantity: 1 },
+    { id: 'x', name: 'Product', unitPrice: 100, quantity: 0 },
+    { id: 'x', name: 'Product', unitPrice: 100, quantity: 1.5 },
+    { id: 'x', name: 'Product', unitPrice: 100, quantity: 1, },
+  ].slice(0, 3)) {
+    const calls: unknown[][] = [];
+    assert.equal(dispatchMetaAddToCart(item, (...args: unknown[]) => calls.push(args)), false);
+    assert.equal(calls.length, 0);
+  }
+});
 
 test('InitiateCheckout requires explicit consent and sends actual amount, INR, and stable event ID', () => {
   const calls: unknown[][] = [];
