@@ -64,6 +64,12 @@ export const PaymentAttemptsTab: React.FC<PaymentAttemptsTabProps> = ({ attempts
             <p className="mt-1 text-[10px] text-neutral-500">
               Attempt statuses: {diagnostics.paymentAttempts.byStatus.map((row) => `${row.status} ${row.count}`).join(' · ') || 'empty'}
             </p>
+            <p className="mt-1 text-[10px] text-neutral-500">
+              Latest donation timestamps: {diagnostics.donations.byStatus.filter((row) => row.newestTimestamp).map((row) => `${row.status}: ${formatWhen(row.newestTimestamp)}`).join(' · ') || 'none'}
+            </p>
+            <p className="mt-1 text-[10px] text-neutral-500">
+              Latest attempt timestamps: {diagnostics.paymentAttempts.byStatus.filter((row) => row.newestTimestamp).map((row) => `${row.status}: ${formatWhen(row.newestTimestamp)}`).join(' · ') || 'none'}
+            </p>
           </div>
         </div>
       )}
