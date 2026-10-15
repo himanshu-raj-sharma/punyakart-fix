@@ -15,7 +15,7 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_OUTPUT = "punyakart-hostinger-campaign-routes-v14.zip"
+DEFAULT_OUTPUT = "punyakart-hostinger-payment-ledger-v15-candidate.zip"
 ROOT_FILES = {
     "server.ts", "server.cjs", "package.json", "package-lock.json",
     "tsconfig.json", "vite.config.ts", ".npmrc", "README.md",
@@ -330,8 +330,8 @@ def main():
                   "tests/adminCmsSync.test.ts", "tests/backendCampaignFlow.test.ts",
                   "tests/backendDonationMinimum.test.ts", "tests/campaignImages.test.ts",
                   "tests/contributionTiers.test.ts", "tests/donationReadbackContract.test.ts",
-                  "tests/genericCampaignRendering.test.ts", "tests/liveDonationToast.test.ts",
-                  "tests/mobileLayout.test.ts", "tests/paymentSession.test.ts",
+                  "tests/frontendRouting.test.ts", "tests/genericCampaignRendering.test.ts",
+                  "tests/liveDonationToast.test.ts", "tests/mobileLayout.test.ts", "tests/paymentSession.test.ts",
                   "tests/publicAssetPolicy.test.ts", "tests/publicCampaignPolling.test.ts",
                   "tests/publicCampaignRendering.test.ts", "tests/publicDonations.test.ts",
                   "tests/siteChrome.test.ts", "tests/campaignRoutes.test.ts",
