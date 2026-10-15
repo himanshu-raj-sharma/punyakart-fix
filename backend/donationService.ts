@@ -280,6 +280,21 @@ export class DonationService {
       if (!isCertificateEligible(updated.status)) {
         throw new BusinessError('This donation can no longer be verified.', 'VALIDATION_ERROR');
       }
+      if (this.paymentAttempts && updated.paymentRef) {
+        try {
+          const legacyAttempt = await this.paymentAttempts.findById(updated.id);
+          if (legacyAttempt && legacyAttempt.status !== 'verified') {
+            await this.paymentAttempts.markVerified(updated.id, {
+              verifiedAt: updated.verifiedAt || verifiedAt,
+              receiptNumber: updated.receiptNumber || receiptNumber,
+              paymentRef: updated.paymentRef,
+            });
+          }
+        } catch (err) {
+          // Confirmation is already durable in donations; leave the attempt for a later repair.
+          logger.warn({ err, donationId: updated.id }, 'Payment-attempt finalization repair deferred');
+        }
+      }
       if (refundObserved) {
         const refunded = await this.repository.updateStatus(updated.id, 'refunded', {
           failureReason: existing.failureReason || 'Payment refunded',
