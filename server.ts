@@ -1866,7 +1866,7 @@ res.type('application/xml').send(
             return;
           }
 
-          if (seed && (seed.status === 'initiated' || seed.status === 'pending_verification')) {
+          if (seed && ['initiated', 'pending_verification', 'failed'].includes(seed.status)) {
 
             verified = await verifyCapturedDonation(donations, metaConversions, seed, payment);
 
