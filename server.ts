@@ -458,7 +458,7 @@ async function syncPendingPaymentForDonation(
 
   const donation = await donations.findById(donationId);
 
-  if (!donation || donation.status !== 'initiated') return;
+  if (!donation || !['initiated', 'pending_verification', 'failed'].includes(donation.status)) return;
 
 
 
@@ -530,6 +530,36 @@ async function syncPendingPaymentForDonation(
 
 
 
+let paymentReconciliationRunning = false;
+
+/**
+ * Recover captured payments when the donor closes the browser before the
+ * checkout callback completes or a Razorpay webhook delivery is missed.
+ * The repositories persist lastReconciliationAt so one old order does not
+ * monopolize every scheduler run.
+ */
+async function reconcilePendingPayments(
+  donations: Awaited<ReturnType<typeof createBackendServices>>['donations'],
+): Promise<void> {
+  if (!razorpay || paymentReconciliationRunning) return;
+  paymentReconciliationRunning = true;
+  try {
+    const cutoff = new Date(Date.now() - 60_000);
+    const candidates = await donations.listPendingForReconciliation(25, cutoff);
+    for (const candidate of candidates) {
+      await donations.markReconciliationAttempt(candidate.id, new Date());
+      await syncPendingPaymentForDonation(donations, candidate.id);
+    }
+    if (candidates.length > 0) {
+      logger.info({ examined: candidates.length }, 'Pending Razorpay payment reconciliation sweep completed');
+    }
+  } catch (err) {
+    logger.error({ err }, 'Pending Razorpay payment reconciliation sweep failed');
+  } finally {
+    paymentReconciliationRunning = false;
+  }
+}
+
 async function startServer() {
 
   assertProductionConfig();
@@ -543,6 +573,13 @@ async function startServer() {
 
 
   const { donations, subscriptions, certificateDownloads, receiptDownloads, audit } = await createBackendServices();
+
+  const paymentReconciliationTimer = setInterval(() => {
+    void reconcilePendingPayments(donations);
+  }, 60_000);
+  paymentReconciliationTimer.unref?.();
+  httpServer.once('close', () => clearInterval(paymentReconciliationTimer));
+  void reconcilePendingPayments(donations);
 
   const documentHandlers = createDocumentHandlers({
     donations, certificateDownloads, receiptDownloads, getCertificateDetails,
@@ -1751,9 +1788,12 @@ res.type('application/xml').send(
 
         if (orderId) {
 
-          const failed = await donations.failByRazorpayOrder(orderId, reason);
+          const recorded = await donations.recordPaymentFailureByRazorpayOrder(orderId, reason);
 
-          logger.info({ orderId, reason, donationId: failed?.id }, 'Webhook marked donation failed');
+          logger.info(
+            { orderId, reason, donationId: recorded?.id },
+            'Webhook recorded a failed payment attempt; Razorpay order remains reconcilable',
+          );
 
         }
 
