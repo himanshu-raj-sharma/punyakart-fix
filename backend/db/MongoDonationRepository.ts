@@ -410,6 +410,16 @@ export class MongoDonationRepository
       );
   }
 
+  async listPendingForAdmin(limit: number): Promise<StoredDonation[]> {
+    const safeLimit = Math.max(0, Math.min(500, Math.floor(limit)));
+    if (!safeLimit) return [];
+    const collection = await this.getCollection();
+    const records = await collection.find({
+      status: { $in: ['initiated', 'pending_verification', 'failed'] },
+    }).sort({ timestamp: -1, _id: -1 }).limit(safeLimit).toArray();
+    return records.map(fromDocument).filter((row): row is StoredDonation => Boolean(row));
+  }
+
   async listAll(): Promise<
     StoredDonation[]
   > {
