@@ -262,6 +262,7 @@ export class DonationService {
       if (existing.status === 'refunded') {
         throw new BusinessError('This donation was refunded and cannot be verified.', 'VALIDATION_ERROR');
       }
+      const refundObserved = (existing.failureReason || '').startsWith('Refund event observed:');
       const receiptNumber =
         (existing.receiptNumber || '').trim() ||
         (await this.repository.allocateReceiptNumber(id, now));
@@ -278,6 +279,13 @@ export class DonationService {
       if (!updated) throw new BusinessError('Failed to verify donation', 'PERSISTENCE_ERROR');
       if (!isCertificateEligible(updated.status)) {
         throw new BusinessError('This donation can no longer be verified.', 'VALIDATION_ERROR');
+      }
+      if (refundObserved) {
+        const refunded = await this.repository.updateStatus(updated.id, 'refunded', {
+          failureReason: existing.failureReason || 'Payment refunded',
+        });
+        if (!refunded) throw new BusinessError('Captured refund record could not be finalized.', 'PERSISTENCE_ERROR');
+        return refunded;
       }
       if (transition.transitioned) await this.afterVerified(updated, now);
       return updated;
@@ -511,11 +519,19 @@ export class DonationService {
 
   async refundByRazorpayOrder(orderId: string, reason = 'Payment refunded'): Promise<StoredDonation | null> {
     const donation = await this.repository.findByRazorpayOrderId(orderId);
-    if (donation) return this.markRefunded(donation.id, reason);
+    if (donation && (isCertificateEligible(donation.status) || donation.status === 'refunded')) {
+      return this.markRefunded(donation.id, reason);
+    }
+    if (donation) {
+      // A refund webhook can arrive before payment.captured while a historical
+      // pending row is still in donations. Keep it reconcilable until capture
+      // is confirmed, then preserve it as a refunded ledger entry.
+      return this.repository.updateStatus(donation.id, donation.status, {
+        failureReason: `Refund event observed: ${reason.slice(0, 400)}`,
+      });
+    }
     const attempt = await this.paymentAttempts?.findByRazorpayOrderId(orderId);
     if (!attempt) return null;
-    // A refund notification can precede payment.captured. Keep the attempt
-    // reconcilable; after capture is confirmed it will enter donations as refunded.
     return this.paymentAttempts?.recordRefundByOrder(orderId, reason) || null;
   }
 
