@@ -10,6 +10,7 @@ import { createServer as createViteServer } from 'vite';
 import { rateLimit } from 'express-rate-limit';
 
 import { createBackendServices } from './backend/index.js';
+import { getMongoDb } from './backend/db/mongo.js';
 import { CONTENT_SECURITY_POLICY } from './backend/contentSecurityPolicy.js';
 import { isPrivateBuildPath, PUBLIC_POLL_LIMITS } from './backend/publicAssetPolicy.js';
 
@@ -458,7 +459,21 @@ async function syncPendingPaymentForDonation(
 
   const donation = await donations.findById(donationId);
 
-  if (!donation || donation.status !== 'initiated') return;
+  if (!donation) return;
+
+  // If the confirmed donation was written but the separate attempt finalization
+  // failed, replay verification only to repair that ledger marker. DonationService
+  // is idempotent for an already-verified record and does not issue a second receipt.
+  if (['verified', 'completed'].includes(donation.status) && donation.paymentRef) {
+    try {
+      await donations.verify(donation.id, donation.paymentRef);
+    } catch (err) {
+      logger.warn({ err, donationId }, 'Payment-attempt finalization repair deferred');
+    }
+    return;
+  }
+
+  if (!['initiated', 'pending_verification', 'failed'].includes(donation.status)) return;
 
 
 
@@ -530,6 +545,36 @@ async function syncPendingPaymentForDonation(
 
 
 
+let paymentReconciliationRunning = false;
+
+/**
+ * Recover captured payments when the donor closes the browser before the
+ * checkout callback completes or a Razorpay webhook delivery is missed.
+ * The repositories persist lastReconciliationAt so one old order does not
+ * monopolize every scheduler run.
+ */
+async function reconcilePendingPayments(
+  donations: Awaited<ReturnType<typeof createBackendServices>>['donations'],
+): Promise<void> {
+  if (!razorpay || paymentReconciliationRunning) return;
+  paymentReconciliationRunning = true;
+  try {
+    const cutoff = new Date(Date.now() - 60_000);
+    const candidates = await donations.listPendingForReconciliation(25, cutoff);
+    for (const candidate of candidates) {
+      await donations.markReconciliationAttempt(candidate.id, new Date());
+      await syncPendingPaymentForDonation(donations, candidate.id);
+    }
+    if (candidates.length > 0) {
+      logger.info({ examined: candidates.length }, 'Pending Razorpay payment reconciliation sweep completed');
+    }
+  } catch (err) {
+    logger.error({ err }, 'Pending Razorpay payment reconciliation sweep failed');
+  } finally {
+    paymentReconciliationRunning = false;
+  }
+}
+
 async function startServer() {
 
   assertProductionConfig();
@@ -543,6 +588,13 @@ async function startServer() {
 
 
   const { donations, subscriptions, certificateDownloads, receiptDownloads, audit } = await createBackendServices();
+
+  const paymentReconciliationTimer = setInterval(() => {
+    void reconcilePendingPayments(donations);
+  }, 60_000);
+  paymentReconciliationTimer.unref?.();
+  httpServer.once('close', () => clearInterval(paymentReconciliationTimer));
+  void reconcilePendingPayments(donations);
 
   const documentHandlers = createDocumentHandlers({
     donations, certificateDownloads, receiptDownloads, getCertificateDetails,
@@ -1683,7 +1735,11 @@ res.type('application/xml').send(
 
         const paymentId = payment?.id as string | undefined;
 
-        const qrCodeId = payment?.qr_code as string | undefined;
+        const qrCodeId = typeof payment?.qr_code_id === 'string'
+          ? payment.qr_code_id
+          : typeof payment?.qr_code === 'string'
+            ? payment.qr_code
+            : undefined;
 
         const donationId = payment?.notes?.donation_id as string | undefined;
 
@@ -1751,9 +1807,12 @@ res.type('application/xml').send(
 
         if (orderId) {
 
-          const failed = await donations.failByRazorpayOrder(orderId, reason);
+          const recorded = await donations.recordPaymentFailureByRazorpayOrder(orderId, reason);
 
-          logger.info({ orderId, reason, donationId: failed?.id }, 'Webhook marked donation failed');
+          logger.info(
+            { orderId, reason, donationId: recorded?.id },
+            'Webhook recorded a failed payment attempt; Razorpay order remains reconcilable',
+          );
 
         }
 
@@ -1825,7 +1884,7 @@ res.type('application/xml').send(
             return;
           }
 
-          if (seed && (seed.status === 'initiated' || seed.status === 'pending_verification')) {
+          if (seed && ['initiated', 'pending_verification', 'failed'].includes(seed.status)) {
 
             verified = await verifyCapturedDonation(donations, metaConversions, seed, payment);
 
@@ -1987,6 +2046,19 @@ res.type('application/xml').send(
 
     try {
 
+      const current = await donations.findById(req.params.id);
+      if (!current) throw new BusinessError('Donation not found', 'NOT_FOUND');
+
+      // Manual confirmation is allowed for offline methods only. A Razorpay
+      // attempt must pass gateway capture/signature/order/amount verification;
+      // the admin endpoint must not manufacture a confirmed donation by ID.
+      if (current.paymentMethod === 'razorpay' && !['verified', 'completed'].includes(current.status)) {
+        throw new BusinessError(
+          'Razorpay payments can only be verified after the server confirms a captured INR payment.',
+          'VALIDATION_ERROR',
+        );
+      }
+
       const paymentRef = req.body.paymentRef || 'manual_verification';
 
       const result = await donations.verify(req.params.id, paymentRef);
@@ -2060,6 +2132,82 @@ res.type('application/xml').send(
   });
 
 
+
+  app.get('/api/admin/payment-attempts', adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const rawLimit = Number(req.query.limit || 200);
+      const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(500, Math.floor(rawLimit))) : 200;
+      const attempts = await donations.listPaymentAttempts(limit);
+      const db = await getMongoDb();
+      const summarizeCollection = async (name: string) => {
+        const collection = db.collection(name);
+        const statuses = ['verified', 'completed', 'refunded', 'initiated', 'pending_verification', 'failed'];
+        const rows = await Promise.all(statuses.map(async (status) => {
+          const filter = { status };
+          const [count, newest, oldest] = await Promise.all([
+            collection.countDocuments(filter),
+            collection.find(filter, { projection: { timestamp: 1 } }).sort({ timestamp: -1 }).limit(1).next(),
+            collection.find(filter, { projection: { timestamp: 1 } }).sort({ timestamp: 1 }).limit(1).next(),
+          ]);
+          return {
+            status,
+            count,
+            newestTimestamp: typeof newest?.timestamp === 'string' ? newest.timestamp : '',
+            oldestTimestamp: typeof oldest?.timestamp === 'string' ? oldest.timestamp : '',
+          };
+        }));
+        const otherCount = await collection.countDocuments({ status: { $nin: statuses } });
+        if (otherCount) rows.push({
+          status: 'other',
+          count: otherCount,
+          newestTimestamp: '',
+          oldestTimestamp: '',
+        });
+        return {
+          total: rows.reduce((sum, row) => sum + row.count, 0),
+          byStatus: rows.filter((row) => row.count > 0),
+        };
+      };
+      const attemptCollectionExists = (await db.listCollections({ name: 'payment_attempts' }, { nameOnly: true }).toArray()).length > 0;
+      const [donationSummary, attemptSummary] = await Promise.all([
+        summarizeCollection('donations'),
+        attemptCollectionExists ? summarizeCollection('payment_attempts') : Promise.resolve({ total: 0, byStatus: [] as Array<{ status: string; count: number; newestTimestamp: string; oldestTimestamp: string }> }),
+      ]);
+      let databaseHost = 'unknown';
+      try {
+        databaseHost = new URL(String(process.env.DATABASE_URL || '')).hostname || 'unknown';
+      } catch {
+        // Never return or log the connection string itself.
+      }
+      res.json({
+        success: true,
+        diagnostics: {
+          checkedAt: new Date().toISOString(),
+          databaseName: db.databaseName,
+          databaseHost,
+          donations: donationSummary,
+          paymentAttempts: { collectionExists: attemptCollectionExists, ...attemptSummary },
+        },
+        attempts: attempts.map((row) => ({
+          id: row.id,
+          fullName: row.fullName,
+          email: row.email,
+          phone: row.phone,
+          amount: row.amount,
+          causeTitle: row.causeTitle,
+          source: row.source || '',
+          campaignId: row.campaignId || '',
+          status: row.status,
+          timestamp: row.timestamp,
+          razorpayOrderId: row.razorpayOrderId || '',
+          razorpaySubscriptionId: row.razorpaySubscriptionId || '',
+          failureReason: row.failureReason || '',
+        })),
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
 
   app.get('/api/admin/donations/search', adminAuth, async (req: Request, res: Response, next: NextFunction) => {
 

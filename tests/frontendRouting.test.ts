@@ -20,6 +20,12 @@ test('frontend route parsing normalizes legacy aliases and trailing slashes with
   assert.equal(canonicalTarget(new URL('https://punyakart.example/crowd-funding/c2/?utm_source=share#details')), '/campaigns/pitru-paksha-seva?utm_source=share#details');
 });
 
+test('admin payment attempts has a stable direct route', () => {
+  const route = parseAppRoute('/admin/payment-attempts');
+  assert.equal(route.activePage, 'admin');
+  assert.equal(route.adminTab, 'payment-attempts');
+});
+
 test('blog route matching distinguishes the list from one exact article path', () => {
   assert.equal(blogSlugForPathname('/blogs'), undefined);
   assert.equal(blogSlugForPathname('/blogs/seva-story'), 'seva-story');

@@ -45,6 +45,7 @@ function pathForAdminTab(tab: AdminTab): string {
   if (tab === 'blogs') return '/admin/blogs';
   if (tab === 'campaigns') return '/admin/campaigns';
   if (tab === 'donors') return '/admin/donors';
+  if (tab === 'payment-attempts') return '/admin/payment-attempts';
   if (tab === 'certificates') return '/admin/certificates';
   if (tab === 'receipt') return '/admin/receipt';
   if (tab === 'manual') return '/admin/manual';

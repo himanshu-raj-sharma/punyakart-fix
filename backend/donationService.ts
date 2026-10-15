@@ -11,6 +11,7 @@ import { validateCertificateForm } from './validation/certificateFormSchema';
 import { timingSafeEqualText } from './security';
 import logger from './logger';
 import type { MetaAttribution } from './metaConversions.js';
+import type { PaymentAttemptRepository } from './db/PaymentAttemptRepository.js';
 import { recurringMetaAttribution } from './metaPaymentTracking.js';
 import { sanitizeTrafficAttribution } from '../frontend/src/utils/trafficAttribution.js';
 import { inheritedTrafficAttribution } from './trafficAttribution.js';
@@ -53,6 +54,7 @@ export class DonationService {
     private readonly _subscriptions: SubscriptionService,
     private readonly gatewayLookup?: GatewayPaymentFinder,
     private readonly notifyAfterVerification: typeof notifyDonorAfterVerification = notifyDonorAfterVerification,
+    private readonly paymentAttempts?: PaymentAttemptRepository,
   ) {}
 
   async listRecent(limit = 30, source?: string): Promise<StoredDonation[]> {
@@ -64,8 +66,55 @@ export class DonationService {
     return filterDonationsBySource(await this.repository.listEligible(), source);
   }
 
+  /** Admin donor reports show only confirmed donations, never checkout attempts. */
   async listAll(source?: string): Promise<StoredDonation[]> {
-    return filterDonationsBySource(await this.repository.listAll(), source);
+    const records = await this.repository.listAll();
+    return filterDonationsBySource(
+      records.filter((row) => isCertificateEligible(row.status) || row.status === 'refunded'),
+      source,
+    );
+  }
+
+  async listPaymentAttempts(limit = 200): Promise<StoredDonation[]> {
+    const safeLimit = Math.max(0, Math.min(500, Math.floor(limit)));
+    if (!safeLimit) return [];
+    const [legacyRows, separateRows] = await Promise.all([
+      this.repository.listPendingForAdmin
+        ? this.repository.listPendingForAdmin(safeLimit)
+        : this.repository.listAll().then((records) =>
+            records.filter((row) => ['initiated', 'pending_verification', 'failed'].includes(row.status))),
+      this.paymentAttempts?.listAdminPending(safeLimit) || Promise.resolve([]),
+    ]);
+    const rows = new Map<string, StoredDonation>();
+    for (const row of legacyRows) rows.set(row.id, row);
+    for (const row of separateRows) rows.set(row.id, row);
+    return [...rows.values()]
+      .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+      .slice(0, safeLimit);
+  }
+
+  async listPendingForReconciliation(limit = 25, olderThan = new Date(Date.now() - 60_000)): Promise<StoredDonation[]> {
+    const [legacy, attempts] = await Promise.all([
+      this.repository.listPendingForReconciliation
+        ? this.repository.listPendingForReconciliation(limit, olderThan)
+        : Promise.resolve([]),
+      this.paymentAttempts?.listPendingForReconciliation(limit, olderThan) || Promise.resolve([]),
+    ]);
+    const byId = new Map<string, StoredDonation>();
+    for (const row of [...legacy, ...attempts]) {
+      if (row.status === 'initiated' || row.status === 'pending_verification' || row.status === 'failed') {
+        byId.set(row.id, row);
+      }
+    }
+    return [...byId.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp)).slice(0, Math.max(0, limit));
+  }
+
+  async markReconciliationAttempt(id: string, now = new Date()): Promise<void> {
+    if (await this.repository.findById(id)) {
+      await this.repository.markReconciliationAttempt?.(id, now);
+      return;
+    }
+    await this.paymentAttempts?.markReconciliationAttempt(id, now);
   }
 
   async searchMatches(query: string): Promise<StoredDonation[]> {
@@ -76,7 +125,8 @@ export class DonationService {
       );
     }
     const q = query.trim();
-    const matches = await this.repository.searchMatches(q, false);
+    const matches = (await this.repository.searchMatches(q, false))
+      .filter((row) => isCertificateEligible(row.status) || row.status === 'refunded');
     if (matches.length > 0) return matches;
 
     // Fallback: loose receipt match when fuzzy search misses FY-format IDs
@@ -118,29 +168,35 @@ export class DonationService {
       ...(trafficAttribution ? { trafficAttribution } : {}),
     };
 
-    return this.repository.initiate(donation);
+    return this.paymentAttempts ? this.paymentAttempts.create(donation) : this.repository.initiate(donation);
+  }
+
+  private async updateCheckoutRecord(id: string, updates: Partial<StoredDonation>): Promise<StoredDonation> {
+    const existingDonation = await this.repository.findById(id);
+    const existingAttempt = existingDonation ? null : await this.paymentAttempts?.findById(id);
+    const updated = existingDonation
+      ? await this.repository.updateStatus(id, existingDonation.status, updates)
+      : existingAttempt
+        ? await this.paymentAttempts?.updateStatus(id, existingAttempt.status, updates)
+        : null;
+    if (!updated) throw new BusinessError('Donation/payment attempt not found', 'NOT_FOUND');
+    return updated;
   }
 
   async attachRazorpayOrder(id: string, razorpayOrderId: string): Promise<StoredDonation> {
-    const updated = await this.repository.updateStatus(id, 'initiated', { razorpayOrderId });
-    if (!updated) throw new BusinessError('Donation not found', 'NOT_FOUND');
-    return updated;
+    return this.updateCheckoutRecord(id, { razorpayOrderId });
   }
 
   async attachRazorpayQr(id: string, razorpayQrId: string): Promise<StoredDonation> {
-    const updated = await this.repository.updateStatus(id, 'initiated', { razorpayQrId });
-    if (!updated) throw new BusinessError('Donation not found', 'NOT_FOUND');
-    return updated;
+    return this.updateCheckoutRecord(id, { razorpayQrId });
   }
 
   async attachRazorpaySubscription(id: string, razorpaySubscriptionId: string): Promise<StoredDonation> {
-    const updated = await this.repository.updateStatus(id, 'initiated', { razorpaySubscriptionId });
-    if (!updated) throw new BusinessError('Donation not found', 'NOT_FOUND');
-    return updated;
+    return this.updateCheckoutRecord(id, { razorpaySubscriptionId });
   }
 
   async findById(id: string): Promise<StoredDonation | null> {
-    return this.repository.findById(id);
+    return (await this.repository.findById(id)) || (await this.paymentAttempts?.findById(id)) || null;
   }
 
   async findByPhone(phone: string): Promise<StoredDonation[]> {
@@ -152,12 +208,15 @@ export class DonationService {
   }
 
   async markFailed(id: string, reason: string): Promise<StoredDonation> {
-    const existing = await this.repository.findById(id);
-    if (!existing) throw new BusinessError('Donation not found', 'NOT_FOUND');
+    const existingDonation = await this.repository.findById(id);
+    const existing = existingDonation || (await this.paymentAttempts?.findById(id)) || null;
+    if (!existing) throw new BusinessError('Donation/payment attempt not found', 'NOT_FOUND');
     if (existing.status === 'verified' || existing.status === 'refunded') return existing;
 
-    const updated = await this.repository.updateStatus(id, 'failed', { failureReason: reason });
-    if (!updated) throw new BusinessError('Failed to update donation', 'PERSISTENCE_ERROR');
+    const updated = existingDonation
+      ? await this.repository.updateStatus(id, 'failed', { failureReason: reason })
+      : await this.paymentAttempts?.updateStatus(id, 'failed', { failureReason: reason });
+    if (!updated) throw new BusinessError('Failed to update payment status', 'PERSISTENCE_ERROR');
     return updated;
   }
 
@@ -181,35 +240,131 @@ export class DonationService {
   }
 
   async verify(id: string, paymentRef: string, now = new Date()): Promise<StoredDonation> {
+    // Compatibility path for historical pending rows that have not yet been
+    // moved by the explicit legacy-attempt migration.
     const existing = await this.repository.findById(id);
-    if (!existing) throw new BusinessError('Donation not found', 'NOT_FOUND');
-    if (isCertificateEligible(existing.status)) return existing;
-    if (existing.status === 'refunded') {
-      throw new BusinessError('This donation was refunded and cannot be verified.', 'VALIDATION_ERROR');
+    if (existing) {
+      if (isCertificateEligible(existing.status)) {
+        // Repair the attempt ledger if the process restarted after the confirmed
+        // donation was persisted but before the attempt was marked finalized.
+        if (existing.paymentRef && this.paymentAttempts) {
+          const attempt = await this.paymentAttempts.findById(id);
+          if (attempt && attempt.status !== 'verified') {
+            await this.paymentAttempts.markVerified(id, {
+              verifiedAt: existing.verifiedAt || now.toISOString(),
+              receiptNumber: existing.receiptNumber || '',
+              paymentRef: existing.paymentRef,
+            });
+          }
+        }
+        return existing;
+      }
+      if (existing.status === 'refunded') {
+        throw new BusinessError('This donation was refunded and cannot be verified.', 'VALIDATION_ERROR');
+      }
+      const refundObserved = (existing.failureReason || '').startsWith('Refund event observed:');
+      const receiptNumber =
+        (existing.receiptNumber || '').trim() ||
+        (await this.repository.allocateReceiptNumber(id, now));
+      const verifiedAt = now.toISOString();
+      const verificationUpdates = { verifiedAt, receiptNumber, paymentRef };
+      const transition = this.repository.verifyOnce
+        ? await this.repository.verifyOnce(id, verificationUpdates)
+        : {
+            donation: await this.repository.updateStatus(id, 'verified', verificationUpdates,
+              { idempotencyKey: paymentRef ? `verify:${id}:${paymentRef}` : undefined }),
+            transitioned: true,
+          };
+      const updated = transition.donation;
+      if (!updated) throw new BusinessError('Failed to verify donation', 'PERSISTENCE_ERROR');
+      if (!isCertificateEligible(updated.status)) {
+        throw new BusinessError('This donation can no longer be verified.', 'VALIDATION_ERROR');
+      }
+      if (this.paymentAttempts && updated.paymentRef) {
+        try {
+          const legacyAttempt = await this.paymentAttempts.findById(updated.id);
+          if (legacyAttempt && legacyAttempt.status !== 'verified') {
+            await this.paymentAttempts.markVerified(updated.id, {
+              verifiedAt: updated.verifiedAt || verifiedAt,
+              receiptNumber: updated.receiptNumber || receiptNumber,
+              paymentRef: updated.paymentRef,
+            });
+          }
+        } catch (err) {
+          // Confirmation is already durable in donations; leave the attempt for a later repair.
+          logger.warn({ err, donationId: updated.id }, 'Payment-attempt finalization repair deferred');
+        }
+      }
+      if (refundObserved) {
+        const refunded = await this.repository.updateStatus(updated.id, 'refunded', {
+          failureReason: existing.failureReason || 'Payment refunded',
+        });
+        if (!refunded) throw new BusinessError('Captured refund record could not be finalized.', 'PERSISTENCE_ERROR');
+        return refunded;
+      }
+      if (transition.transitioned) await this.afterVerified(updated, now);
+      return updated;
     }
 
-    const receiptNumber =
-      (existing.receiptNumber || '').trim() ||
-      (await this.repository.allocateReceiptNumber(id, now));
-    const verifiedAt = now.toISOString();
+    if (!this.paymentAttempts) {
+      throw new BusinessError('Donation not found', 'NOT_FOUND');
+    }
+    const attempt = await this.paymentAttempts.findById(id);
+    if (!attempt) throw new BusinessError('Payment attempt not found', 'NOT_FOUND');
+    if (attempt.status === 'refunded') {
+      throw new BusinessError('A refunded payment attempt cannot be verified.', 'VALIDATION_ERROR');
+    }
+    if (attempt.status === 'verified' && attempt.paymentRef && attempt.paymentRef !== paymentRef) {
+      throw new BusinessError('Payment attempt is already bound to another payment.', 'VALIDATION_ERROR');
+    }
 
-    const verificationUpdates = {
+    const existingPayment = this.repository.findByPaymentRef
+      ? await this.repository.findByPaymentRef(paymentRef)
+      : (await this.repository.listAll()).find((row) => row.paymentRef === paymentRef) || null;
+    if (existingPayment && existingPayment.id !== attempt.id) {
+      throw new BusinessError('This Razorpay payment is already linked to another donation.', 'VALIDATION_ERROR');
+    }
+
+    const receiptNumber = (attempt.receiptNumber || '').trim() || await this.repository.nextReceiptNumber(now);
+    const verifiedAt = attempt.verifiedAt || now.toISOString();
+    const refundObserved = (attempt.failureReason || '').startsWith('Refund event observed:');
+    const { failureReason: _priorFailureReason, ...attemptWithoutFailure } = attempt;
+    const candidate: StoredDonation = {
+      ...attemptWithoutFailure,
+      status: 'verified',
       verifiedAt,
       receiptNumber,
       paymentRef,
+      ...(refundObserved && attempt.failureReason ? { failureReason: attempt.failureReason } : {}),
     };
-    const transition = this.repository.verifyOnce
-      ? await this.repository.verifyOnce(id, verificationUpdates)
-      : { donation: await this.repository.updateStatus(id, 'verified', verificationUpdates,
-        { idempotencyKey: paymentRef ? `verify:${id}:${paymentRef}` : undefined }), transitioned: true };
-    const updated = transition.donation;
 
-    if (!updated) throw new BusinessError('Failed to verify donation', 'PERSISTENCE_ERROR');
-    if (!isCertificateEligible(updated.status)) {
-      throw new BusinessError('This donation can no longer be verified.', 'VALIDATION_ERROR');
+    // Insert-only by donation ID, order ID, and payment ID makes delayed or
+    // repeated callbacks/webhooks converge on one confirmed donation.
+    const saved = await this.repository.upsertVerified(candidate);
+    if (saved.id !== attempt.id || saved.paymentRef !== paymentRef ||
+        saved.amount !== attempt.amount || !isCertificateEligible(saved.status)) {
+      throw new BusinessError('Captured payment conflicts with an existing donation record.', 'VALIDATION_ERROR');
     }
-    if (!transition.transitioned) return updated;
 
+    const resolution = await this.paymentAttempts.markVerified(attempt.id, {
+      verifiedAt: saved.verifiedAt || verifiedAt,
+      receiptNumber: saved.receiptNumber || receiptNumber,
+      paymentRef,
+    });
+    if (refundObserved) {
+      // If a refund webhook arrived before the capture webhook, retain the
+      // captured transaction in the donation ledger but do not issue email/CAPI.
+      const refunded = await this.repository.updateStatus(saved.id, 'refunded', {
+        failureReason: attempt.failureReason,
+      });
+      if (!refunded) throw new BusinessError('Captured refund record could not be finalized.', 'PERSISTENCE_ERROR');
+      return refunded;
+    }
+    if (resolution.transitioned) await this.afterVerified(saved, now);
+    return saved;
+  }
+
+  private async afterVerified(updated: StoredDonation, now: Date): Promise<void> {
     if (updated.type === 'monthly' && updated.autoPay) {
       try {
         if (isRecurringDonationId(updated.id) && updated.razorpaySubscriptionId) {
@@ -234,24 +389,42 @@ export class DonationService {
       }
     }
 
-    // Async notifications — do not block verification response
     void this.notifyAfterVerification(updated).catch((err) => {
       logger.warn({ err, donationId: updated.id }, 'Post-verification notification failed');
     });
-
-    return updated;
   }
 
   async findByRazorpayOrderId(orderId: string): Promise<StoredDonation | null> {
-    return this.repository.findByRazorpayOrderId(orderId);
+    return (await this.repository.findByRazorpayOrderId(orderId))
+      || (await this.paymentAttempts?.findByRazorpayOrderId(orderId))
+      || null;
   }
 
   async findByRazorpayQrId(qrId: string): Promise<StoredDonation | null> {
-    return this.repository.findByRazorpayQrId(qrId);
+    return (await this.repository.findByRazorpayQrId(qrId))
+      || (await this.paymentAttempts?.findByRazorpayQrId(qrId))
+      || null;
   }
 
   async findByRazorpaySubscriptionId(subscriptionId: string): Promise<StoredDonation | null> {
-    return this.repository.findByRazorpaySubscriptionId(subscriptionId);
+    return (await this.repository.findByRazorpaySubscriptionId(subscriptionId))
+      || (await this.paymentAttempts?.findByRazorpaySubscriptionId(subscriptionId))
+      || null;
+  }
+
+  async recordPaymentFailureByRazorpayOrder(orderId: string, reason: string, now = new Date()): Promise<StoredDonation | null> {
+    const donation = await this.repository.findByRazorpayOrderId(orderId);
+    if (donation) {
+      if (isCertificateEligible(donation.status) || donation.status === 'refunded') return donation;
+      // A failed payment attempt is visible as failed, but remains eligible
+      // for reconciliation because Razorpay orders can accept a later retry.
+      // Never overwrite a previously observed refund event before capture reconciliation.
+      const failureReason = (donation.failureReason || '').startsWith('Refund event observed:')
+        ? donation.failureReason
+        : reason;
+      return this.repository.updateStatus(donation.id, 'failed', { failureReason });
+    }
+    return this.paymentAttempts?.recordPaymentFailureByOrder(orderId, reason, now) || null;
   }
 
   /**
@@ -267,22 +440,26 @@ export class DonationService {
     const subscriptionId = input.razorpaySubscriptionId.trim();
     if (!paymentId || !subscriptionId) return null;
 
-    const already = this.repository.findByPaymentRef
+    const existingDonation = this.repository.findByPaymentRef
       ? await this.repository.findByPaymentRef(paymentId)
-      : (await this.repository.listAll()).find((row) => row.paymentRef === paymentId);
+      : (await this.repository.listAll()).find((row) => row.paymentRef === paymentId) || null;
+    const already = existingDonation
+      || (await this.paymentAttempts?.findByPaymentRef(paymentId))
+      || null;
     if (already) {
       if (already.razorpaySubscriptionId !== subscriptionId
         || (input.amountPaise !== undefined && input.amountPaise !== already.amount * 100)) {
         throw new BusinessError('Recurring payment does not match this subscription.', 'VALIDATION_ERROR');
       }
-      if (['verified', 'completed', 'failed', 'refunded'].includes(already.status)) return already;
+      if (['verified', 'completed', 'refunded'].includes(already.status)) return already;
+      // A retry may capture a subscription payment previously recorded as failed.
       return this.verify(already.id, paymentId);
     }
 
     const localSub = await this._subscriptions.findByRazorpaySubscriptionId(subscriptionId);
     const seed =
-      (localSub?.seedDonationId ? await this.repository.findById(localSub.seedDonationId) : null) ||
-      (await this.repository.findByRazorpaySubscriptionId(subscriptionId));
+      (localSub?.seedDonationId ? await this.findById(localSub.seedDonationId) : null) ||
+      (await this.findByRazorpaySubscriptionId(subscriptionId));
 
     if (!localSub && !seed) {
       logger.warn({ subscriptionId, paymentId }, 'Subscription charge with no local seed donation');
@@ -334,7 +511,7 @@ export class DonationService {
       trafficAttribution: inheritedTrafficAttribution(seed?.trafficAttribution),
     };
 
-    const persisted = await this.repository.initiate(donation);
+    const persisted = this.paymentAttempts ? await this.paymentAttempts.create(donation) : await this.repository.initiate(donation);
     if (persisted.razorpaySubscriptionId !== subscriptionId || persisted.paymentRef !== paymentId || persisted.amount !== amountInr) {
       throw new BusinessError('Recurring payment does not match the stored donation.', 'VALIDATION_ERROR');
     }
@@ -343,45 +520,69 @@ export class DonationService {
   }
 
   async verifyByRazorpayOrder(orderId: string, paymentRef: string): Promise<StoredDonation | null> {
-    const donation = await this.repository.findByRazorpayOrderId(orderId);
+    const donation = await this.findByRazorpayOrderId(orderId);
     if (!donation) return null;
     return this.verify(donation.id, paymentRef);
   }
 
   async verifyByDonationId(donationId: string, paymentRef: string): Promise<StoredDonation | null> {
-    const donation = await this.repository.findById(donationId);
+    const donation = await this.findById(donationId);
     if (!donation) return null;
     return this.verify(donation.id, paymentRef);
   }
 
   async verifyByRazorpayQrId(qrId: string, paymentRef: string): Promise<StoredDonation | null> {
-    const donation = await this.repository.findByRazorpayQrId(qrId);
+    const donation = await this.findByRazorpayQrId(qrId);
     if (!donation) return null;
     return this.verify(donation.id, paymentRef);
   }
 
   async failByRazorpayOrder(orderId: string, reason: string): Promise<StoredDonation | null> {
-    const donation = await this.repository.findByRazorpayOrderId(orderId);
-    if (!donation) return null;
-    return this.markFailed(donation.id, reason);
+    return this.recordPaymentFailureByRazorpayOrder(orderId, reason);
   }
 
   async refundByRazorpayOrder(orderId: string, reason = 'Payment refunded'): Promise<StoredDonation | null> {
     const donation = await this.repository.findByRazorpayOrderId(orderId);
-    if (!donation) return null;
-    return this.markRefunded(donation.id, reason);
+    if (donation && (isCertificateEligible(donation.status) || donation.status === 'refunded')) {
+      return this.markRefunded(donation.id, reason);
+    }
+    if (donation) {
+      // A refund webhook can arrive before payment.captured while a historical
+      // pending row is still in donations. Keep it reconcilable until capture
+      // is confirmed, then preserve it as a refunded ledger entry.
+      return this.repository.updateStatus(donation.id, donation.status, {
+        failureReason: `Refund event observed: ${reason.slice(0, 400)}`,
+      });
+    }
+    const attempt = await this.paymentAttempts?.findByRazorpayOrderId(orderId);
+    if (!attempt) return null;
+    return this.paymentAttempts?.recordRefundByOrder(orderId, reason) || null;
   }
 
   async refundByPaymentRef(paymentRef: string, reason = 'Payment refunded'): Promise<StoredDonation | null> {
     const donation = this.repository.findByPaymentRef
       ? await this.repository.findByPaymentRef(paymentRef)
       : (await this.repository.listAll()).find((row) => row.paymentRef === paymentRef);
-    if (!donation) return null;
-    return this.markRefunded(donation.id, reason);
+    if (donation && (isCertificateEligible(donation.status) || donation.status === 'refunded')) {
+      return this.markRefunded(donation.id, reason);
+    }
+    if (donation) {
+      return this.repository.updateStatus(donation.id, donation.status, {
+        failureReason: `Refund event observed: ${reason.slice(0, 400)}`,
+      });
+    }
+    const attempt = await this.paymentAttempts?.findByPaymentRef(paymentRef);
+    if (!attempt) return null;
+    if (attempt.razorpayOrderId) {
+      return this.paymentAttempts?.recordRefundByOrder(attempt.razorpayOrderId, reason) || null;
+    }
+    return this.paymentAttempts?.updateStatus(attempt.id, attempt.status, {
+      failureReason: `Refund event observed: ${reason.slice(0, 400)}`,
+    }) || null;
   }
 
   async getStatus(id: string): Promise<{ status: string }> {
-    const donation = await this.repository.findById(id);
+    const donation = await this.findById(id);
     if (!donation) throw new BusinessError('Donation not found', 'NOT_FOUND');
     return { status: donation.status };
   }

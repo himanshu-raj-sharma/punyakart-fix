@@ -74,6 +74,7 @@ export type AdminTab =
   | 'statistics'
   | 'staff'
   | 'donors'
+  | 'payment-attempts'
   | 'certificates'
   | 'manual'
   | 'receipt'
@@ -119,6 +120,37 @@ export interface AdminBlog {
   published_at: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface AdminPaymentAttempt {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  amount: number;
+  causeTitle: string;
+  source: string;
+  campaignId: string;
+  status: string;
+  timestamp: string;
+  razorpayOrderId: string;
+  razorpaySubscriptionId: string;
+  failureReason: string;
+}
+
+export interface AdminPaymentSyncDiagnostics {
+  checkedAt: string;
+  databaseName: string;
+  databaseHost: string;
+  donations: {
+    total: number;
+    byStatus: Array<{ status: string; count: number; newestTimestamp: string; oldestTimestamp: string }>;
+  };
+  paymentAttempts: {
+    collectionExists: boolean;
+    total: number;
+    byStatus: Array<{ status: string; count: number; newestTimestamp: string; oldestTimestamp: string }>;
+  };
 }
 
 export interface AdminSubscription {

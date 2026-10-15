@@ -49,3 +49,20 @@ test('public donation validation bounds free-text fields before persistence', ()
   assert.throws(() => validateDonationPayload({ ...base, address: 'x'.repeat(301) }));
   assert.throws(() => validateDonationPayload({ ...base, dedication: { prayerMessage: 'x'.repeat(1_001) } }));
 });
+
+test('admin manual verification cannot promote an unverified Razorpay attempt', async () => {
+  const source = await server();
+  const start = source.indexOf("app.post('/api/admin/donations/:id/verify'");
+  const end = source.indexOf("app.get('/api/admin/fundraisers'", start);
+  const route = source.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(route, /current\.paymentMethod === 'razorpay'/);
+  assert.match(route, /!\['verified', 'completed'\]\.includes\(current\.status\)/);
+  assert.match(route, /captured INR payment/);
+});
+
+test('Razorpay capture webhook recognizes supported QR reference fields safely', async () => {
+  const source = await server();
+  assert.match(source, /typeof payment\?\.qr_code_id === 'string'/);
+  assert.match(source, /typeof payment\?\.qr_code === 'string'/);
+});

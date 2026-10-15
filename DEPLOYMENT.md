@@ -1,6 +1,99 @@
 # Deploy Punyakart to Hostinger
 
-## v14 — campaign route reliability release
+## v15 candidate — payment-attempt separation and captured-payment reconciliation
+
+This release candidate changes the data model and admin display. **Do not upload it
+until the local tests pass and an Atlas backup has been confirmed.**
+
+- Checkout initiation, incomplete payment, and retryable failures are written to
+  `payment_attempts`; they no longer inflate the confirmed-donation table.
+- A donation enters `donations` only after the backend has fetched/received an
+  authenticated Razorpay payment, validated `status=captured`, INR, amount, and
+  order binding, and then written the verified row with a receipt number.
+  Refunded confirmed donations remain in the ledger for accounting/audit.
+- The authenticated admin panel has a **Payment attempts** tab. Its diagnostics
+  show the runtime MongoDB host/database and status counts without showing the
+  connection string or donor records, so production can be compared with Atlas.
+- The server runs a bounded reconciliation sweep every 60 seconds for linked
+  pending Razorpay order/QR attempts older than 60 seconds. It finalizes only
+  verified captured payments that match the stored amount/order. It does not
+  import every captured payment from the whole Razorpay account.
+- A failed individual Razorpay payment is recorded as an attempt failure; it
+  does not terminally mark a still-payable Razorpay order, because a retry may
+  subsequently be captured.
+
+### Razorpay webhook settings
+
+Configure the webhook URL as `https://punyakart.com/api/webhooks/razorpay`.
+The secret configured in Razorpay must match Hostinger's `RAZORPAY_WEBHOOK_SECRET`
+exactly. Enable at least `payment.captured`, `payment.failed`,
+`payment.refunded`, and `refund.processed`. If Auto Pay is used, also enable
+`subscription.charged`, `subscription.cancelled`, `subscription.completed`,
+and `subscription.halted`. A secret variable existing in Hostinger does not
+prove that the dashboard webhook URL/events/secret are correctly configured.
+The periodic sweep provides a recovery path for linked attempts if a callback or
+webhook was missed, but the webhook should still be configured.
+
+### One-time legacy attempt migration
+
+The current `donations` collection may still contain historical `initiated`,
+`pending_verification`, or `failed` rows. The migration is **dry-run by default**.
+First take and verify an Atlas backup. Run the script only with the intended
+production `DATABASE_URL` and `PUNYAKART_DB_NAME`:
+
+```powershell
+npm run migrate:payment-attempts
+```
+
+Review the reported database name/host and pending counts. No records are written
+in dry-run mode. Only after the Atlas backup is verified, and only if the report
+matches the intended production collection, apply the move:
+
+```powershell
+npm run migrate:payment-attempts -- --apply --backup-confirmed
+```
+
+The script copies each unconfirmed row to `payment_attempts`, checks identity and
+state, and deletes the source row only after a successful copy. It never moves
+verified/refunded donations. **Do not run this against a local/dev database or
+against an unverified connection string.** Do not bulk-import all Razorpay
+Dashboard payments: some may belong to other products or attempts; compare
+payment ID/order ID with Punyakart metadata before any recovery. Captured payments
+without a matching attempt require a separate, per-payment investigation.
+
+### Hostinger environment variables
+
+| Variable | Required? | Purpose |
+|---|---|---|
+| `DATABASE_URL` | **Yes** | MongoDB Atlas connection string. Keep the value private. |
+| `PUNYAKART_DB_NAME` | Optional; recommended | Database name; defaults to `punyakart`. |
+| `ADMIN_API_KEY` | **Yes** | Admin API bearer secret; production requires at least 32 random characters. |
+| `DONOR_JWT_SECRET` | **Yes** | Donor/document authorization signing secret; production requires at least 32 random characters. |
+| `RAZORPAY_KEY_ID` | **Yes** | Public key ID paired with the server key secret. |
+| `RAZORPAY_KEY_SECRET` | **Yes** | Server-only Razorpay API and checkout-signature secret. Never expose it in frontend code. |
+| `RAZORPAY_WEBHOOK_SECRET` | **Required for webhook sync** | Must exactly match the webhook secret configured in Razorpay. Without it this webhook route rejects events. |
+| `NODE_ENV` | Set to `production` | Production safety checks and runtime behavior. |
+| `PORT` | Usually supplied by Hostinger | Do not hard-code unless Hostinger explicitly requires it. |
+| `CORS_ORIGINS` | Optional / deployment-specific | Comma-separated allowed origins if CORS restrictions are configured; verify it includes the canonical production origin. |
+| `VITE_RAZORPAY_KEY_ID` | Optional public build-time fallback | Public key ID only. Checkout normally uses the key ID returned by the backend. It is not a secret and does not control database synchronization. |
+| `META_PIXEL_ID` | Needed for current Meta CAPI integration | Must be `1112592431188643` for the existing sender. |
+| `META_CAPI_ACCESS_TOKEN` | Optional integration; required to send CAPI | Server-side secret for Meta Conversions API. Keep in Hostinger only. |
+| `PUBLIC_SITE_URL` | Strongly recommended | Canonical origin, normally `https://punyakart.com`; required for a correctly configured Meta CAPI source origin. |
+| `META_CAPI_TEST_EVENT_CODE` | Optional | Meta Test Events only; remove after testing live events. |
+| `META_GRAPH_API_VERSION` | Optional | Defaults to `v22.0` in the current integration. |
+| `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` | Optional integration; all four required to send email | SMTP delivery for receipts/certificates. |
+| `SMTP_PORT`, `SMTP_SECURE`, `EMAIL_REPLY_TO`, `EMAIL_FROM_NAME` | Optional | SMTP transport and sender display settings. Default SMTP port is 587. |
+| `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_TEMPLATE_NAME` | Optional integration; all three required to send WhatsApp | Meta WhatsApp Cloud API template delivery. |
+| `WHATSAPP_TEMPLATE_LANGUAGE`, `WHATSAPP_TEMPLATE_VARS` | Optional | WhatsApp template language and parameter mapping. |
+| `NGO_80G_NUMBER` | Optional but should be verified | Official 80G registration number displayed on certificates. An unset value produces a pending/not-valid-for-ITR notice. |
+| `NGO_TAX_BENEFIT`, `NGO_CONTACT_EMAIL` | Optional | Certificate disclaimer and contact address. |
+| `LOG_LEVEL` | Optional | Backend log verbosity; defaults to `info`. |
+
+`VITE_RAZORPAY_KEY_ID` is a public key value, not a payment-sync fix. The key pair
+(`RAZORPAY_KEY_ID` + `RAZORPAY_KEY_SECRET`) must be from the same Razorpay mode
+(test or live). Never paste secret values into chat or commit them to GitHub.
+
+## v14 historical release notes — campaign route reliability
 
 This release enforces **₹200 minimum for every new donation, including
 Chennai Airport**, in public forms, shared checkout, backend and new manual
@@ -33,13 +126,13 @@ recovery after process crashes and global duplicate-payment protection across
 independent import/recurring paths remain follow-up work. Keep live environment
 settings and media backups; do not run `npm run test:backend` against production.
 
-## Ready-to-upload ZIP
+## Historical v14 ZIP reference
 
-File: **punyakart-hostinger-campaign-routes-v14.zip** in the project folder.
-This release includes the latest Navratri copy and hero styling, the shared
-Thursday/C5 campaign layout, fixed public header, shared public footer, and
-campaign-specific recent-donor popup. It retains traffic attribution, donation
-minimums, and Meta CAPI. Earlier archives are not overwritten.
+Historical archive name: **punyakart-hostinger-campaign-routes-v14.zip**. It does not contain this payment-ledger release candidate.
+The historical v14 archive included the Navratri copy and hero styling, the
+shared Thursday/C5 campaign layout, fixed public header, shared public footer,
+and campaign-specific recent-donor popup. The v15 candidate must be packaged
+separately and tested before upload.
 
 ### Mobile layout, images and contribution tables in v11
 
@@ -255,8 +348,8 @@ python scripts/pack_hostinger.py --temp-dir "C:\path\to\approved-temp-dir" --out
 ```
 
 It runs TypeScript, isolated CSP/donation tests, Meta CAPI/consent/payment-flow tests,
-traffic capture/admin/persistence-flow tests, and Navratri page/discovery/integration
-tests, then
+traffic capture/admin/persistence-flow tests, the isolated payment-attempt/reconciliation
+tests, and Navratri page/discovery/integration tests, then
 builds in a temporary folder without
 clearing workspace dist/media, checks bundle syntax, checks ZIP integrity and
 required files, and confirms the CSP gateway origins, the setup bootstrap script

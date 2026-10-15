@@ -64,6 +64,15 @@ test('public header and footer are single shared siblings outside lazy-page Susp
   assert.equal(occurrences.Header[0].parent, occurrences.Footer[0].parent);
 });
 
+test('admin payment attempts tab has a stable direct URL and parsed tab ID', async () => {
+  const [app, routes] = await Promise.all([
+    source('App.tsx'),
+    source('utils/appRoutes.ts'),
+  ]);
+  assert.match(app, /tab === 'payment-attempts'\) return '\/admin\/payment-attempts'/);
+  assert.match(routes, /'donors', 'payment-attempts', 'certificates'/);
+});
+
 test('public pages do not add duplicate site headers or footers', async () => {
   const pages = await readdir(new URL('../frontend/src/pages/', import.meta.url));
   for (const page of pages.filter((name) => name.endsWith('.tsx') && name !== 'AdminPage.tsx')) {

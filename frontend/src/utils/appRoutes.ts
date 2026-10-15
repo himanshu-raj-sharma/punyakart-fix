@@ -17,7 +17,7 @@ export function parseAppRoute(pathname: string): { activePage: ActivePage; campa
   const path = normalizePathname(pathname);
   const within = (base: string) => path === base || path.startsWith(`${base}/`);
   let adminTab: AdminTab = 'statistics';
-  for (const tab of ['blogs', 'campaigns', 'donors', 'certificates', 'receipt', 'manual', 'staff', 'autopay'] as const) {
+  for (const tab of ['blogs', 'campaigns', 'donors', 'payment-attempts', 'certificates', 'receipt', 'manual', 'staff', 'autopay'] as const) {
     if (within(`/admin/${tab}`)) adminTab = tab;
   }
   if (within('/admin/subscriptions')) adminTab = 'autopay';

@@ -24,6 +24,7 @@ interface MongoDonationDocument
   phoneLast10?: string;
   receiptNumberCompact?: string;
   idempotencyKey?: string;
+  lastReconciliationAt?: string;
 }
 
 interface ReceiptCounterDocument {
@@ -76,6 +77,7 @@ function fromDocument(
     _id: _ignoredId,
     phoneLast10: _ignoredPhone,
     receiptNumberCompact: _ignoredReceipt,
+    lastReconciliationAt: _ignoredReconciliationAt,
     ...donation
   } = document;
 
@@ -408,6 +410,16 @@ export class MongoDonationRepository
       );
   }
 
+  async listPendingForAdmin(limit: number): Promise<StoredDonation[]> {
+    const safeLimit = Math.max(0, Math.min(500, Math.floor(limit)));
+    if (!safeLimit) return [];
+    const collection = await this.getCollection();
+    const records = await collection.find({
+      status: { $in: ['initiated', 'pending_verification', 'failed'] },
+    }).sort({ timestamp: -1, _id: -1 }).limit(safeLimit).toArray();
+    return records.map(fromDocument).filter((row): row is StoredDonation => Boolean(row));
+  }
+
   async listAll(): Promise<
     StoredDonation[]
   > {
@@ -432,6 +444,40 @@ export class MongoDonationRepository
         ): record is StoredDonation =>
           Boolean(record),
       );
+  }
+
+  async listPendingForReconciliation(limit: number, olderThan: Date): Promise<StoredDonation[]> {
+    const safeLimit = Math.max(0, Math.min(100, Math.floor(limit)));
+    if (!safeLimit) return [];
+    const collection = await this.getCollection();
+    const olderThanIso = olderThan.toISOString();
+    const records = await collection.find({
+      status: { $in: ['initiated', 'pending_verification', 'failed'] },
+      timestamp: { $lte: olderThanIso },
+      $and: [
+        {
+          $or: [
+            { lastReconciliationAt: { $exists: false } },
+            { lastReconciliationAt: { $lte: olderThanIso } },
+          ],
+        },
+        {
+          $or: [
+            { razorpayOrderId: { $exists: true, $nin: ['', null] } },
+            { razorpayQrId: { $exists: true, $nin: ['', null] } },
+          ],
+        },
+      ],
+    }).sort({ lastReconciliationAt: 1, timestamp: 1 }).limit(safeLimit).toArray();
+    return records.map(fromDocument).filter((row): row is StoredDonation => Boolean(row));
+  }
+
+  async markReconciliationAttempt(id: string, now: Date): Promise<void> {
+    const collection = await this.getCollection();
+    await collection.updateOne(
+      { _id: id, status: { $in: ['initiated', 'pending_verification', 'failed'] } },
+      { $set: { lastReconciliationAt: now.toISOString() } },
+    );
   }
 
   async searchForCertificate(

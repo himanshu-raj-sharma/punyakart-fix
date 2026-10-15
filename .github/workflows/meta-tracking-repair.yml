@@ -31,5 +31,9 @@ jobs:
         run: npm run test:meta
       - name: Test Content Security Policy
         run: npm run test:csp
+      - name: Test payment attempts and reconciliation
+        run: npm run test:payment-attempts
+      - name: Test frontend routing and site chrome
+        run: node --import tsx --test tests/frontendRouting.test.ts tests/siteChrome.test.ts tests/securityBoundary.test.ts
       - name: Build production server and frontend
         run: npm run build
