@@ -144,9 +144,11 @@ origins are added to connect-src. Version 2 also allows the exact setup-tool scr
 https://www.facebook.com/signals/iwl.js in script-src and script-src-elem. Meta's
 public fbevents.js bootstrapper loads that URL when starting its setup tool,
 including the extension flow. The prior policy allowed the normal Pixel script
-but blocked this separate script. No Facebook wildcard, unsafe-eval, or relaxed
-frame protection was added. These Meta fixes are retained in v11. Razorpay payment
-verification and Purchase tracking from the verified payment amount are preserved.
+but blocked this separate script. No Facebook wildcard or relaxed frame
+protection was added. The current GTM compatibility change adds `'unsafe-eval'`
+only to `script-src` and allows `https://stats.g.doubleclick.net` under
+`connect-src` because those are the exact observed GTM/Google blocks. Razorpay
+payment verification and Purchase tracking from the verified payment amount are preserved.
 
 This package contains the application source, assets, and deployment configuration;
 local workspace notes and private development files are not included in the ZIP.

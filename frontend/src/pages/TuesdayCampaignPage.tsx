@@ -53,6 +53,7 @@ import { usePublicCampaign } from '../hooks/usePublicCampaign';
 import { campaignDonationAvailable, campaignAvailabilityMessage } from '../utils/publicCampaignPolling';
 import { resolveCampaignQuantityChange } from '../utils/campaignQuantity.js';
 import { canonicalCampaignId } from '../utils/campaignRoutes';
+import { dispatchMetaAddToCart } from '../utils/metaTracking';
 import { donorFeedMessage, formatRelativeTime, publicStat } from '../utils/publicDonations';
 
 interface TuesdayCampaignPageProps {
@@ -478,6 +479,12 @@ export const TuesdayCampaignPage: React.FC<TuesdayCampaignPageProps> = ({
   const handleAddToCart = (item: SevaItem) => {
     if ((quantities[item.id] || 0) > 0) return;
     const addCount = stepperValues[item.id] || 1;
+    const fbq = typeof window === 'undefined'
+      ? undefined
+      : (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
+    dispatchMetaAddToCart({
+      id: item.id, name: item.name, unitPrice: item.unitPrice, quantity: addCount,
+    }, fbq);
     setQuantities((prev) => ({ ...prev, [item.id]: addCount }));
     setStepperValues((prev) => ({ ...prev, [item.id]: addCount }));
     setSelectedPreset(null);
@@ -495,6 +502,15 @@ export const TuesdayCampaignPage: React.FC<TuesdayCampaignPageProps> = ({
       }
       return { ...prev, [id]: next };
     });
+    if (delta > 0) {
+      const item = SEVA_ITEMS.find((candidate) => candidate.id === id);
+      const fbq = typeof window === 'undefined'
+        ? undefined
+        : (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
+      if (item) dispatchMetaAddToCart({
+        id: item.id, name: item.name, unitPrice: item.unitPrice, quantity: delta,
+      }, fbq);
+    }
     setSelectedPreset(null);
     setCustomAmountValue('');
   };

@@ -209,6 +209,10 @@ def validate_archive(archive, expected):
                     "Archive contains an invalid entry type or compression method.")
         require(packed.testzip() is None, "Archive CRC verification failed.")
         server = packed.read("dist/server.cjs").decode("utf-8")
+        require("'unsafe-eval'" in server,
+                "Built server CSP is missing the configured GTM eval compatibility source.")
+        require("https://stats.g.doubleclick.net" in server,
+                "Built server CSP is missing the observed Google collection endpoint.")
         require(re.search(r"\bMIN_DONATION_AMOUNT\s*=\s*200\b", server) is not None,
                 "Built server is missing the uniform INR 200 minimum.")
         require("export const MIN_DONATION_AMOUNT = 200;" in

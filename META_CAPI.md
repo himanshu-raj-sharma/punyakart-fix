@@ -52,20 +52,28 @@ This release does not change external gateway settings or Meta UI event rules.
 
 ## GTM and Content Security Policy diagnostics
 
-The site's CSP intentionally does **not** permit `'unsafe-eval'`. The browser
-diagnostic in which `gtm.js` attempts string evaluation commonly indicates a
-Google Tag Manager Custom JavaScript variable or another container feature that
-depends on evaluation. Google's recommended alternative is to replace Custom
-JavaScript variables with built-in variables or Custom Templates; do not loosen
-the site CSP simply to hide the error without reviewing the container.
+The current CSP includes `'unsafe-eval'` in `script-src` to let the
+already-published `GTM-WRK43MWJ` container run its string-evaluation code. The
+policy also permits the observed Google collection endpoint
+`https://stats.g.doubleclick.net` under `connect-src`. These changes address
+the two DevTools blocks; they do **not** fix incorrect tag variables or prove
+that every event is configured correctly.
 
-Review container `GTM-WRK43MWJ` for tags/variables that send Meta `Purchase` or
-`InitiateCheckout`. The site code already emits native browser events with the
-real server-created/verified INR amount and a matching event ID for the opt-in
-Pixel. If GTM also sends those Meta events, it can create duplicate or constant-
-value events. Keep only one deliberate sender per event/Pixels, or explicitly
-supply validated dynamic `value`, `currency`, and event IDs to the chosen GTM
-tag. Do not guess at event parameters or use a fixed donation value.
+The website's native `InitiateCheckout` and verified `Purchase` handlers use
+the server-created donation amount, `INR`, and a stable donation event ID.
+Campaign cart handlers now emit a browser `AddToCart` to the legacy Pixel using
+the live unit price multiplied by quantity, and push a matching ecommerce
+`add_to_cart` object into `dataLayer` for GTM/GA4. The CAPI worker still sends
+verified `Purchase` only; the Meta diagnostic about AddToCart CAPI coverage can
+remain because this integration does not send server-side AddToCart events.
+
+Review the published GTM container's Meta tags and custom variables: it may be
+sending duplicate or constant-value `Purchase` and `InitiateCheckout` events.
+Use the actual dynamic amount, currency and event ID, and keep one deliberate
+sender per Pixel/event. Disable any GTM `AddToCart` tag that targets the same
+legacy Pixel, or it may duplicate the native browser event. The GTM container is
+managed outside this repository, so repository changes alone cannot correct its
+published tag configuration.
 
 The application source loads GTM, Pixel and Clarity only on `punyakart.com` and
 `www.punyakart.com`, and the native event helper now separately blocks native
@@ -91,15 +99,16 @@ These exact script paths are allowed for the published Meta client SDK
 https://github.com/facebook/capi-param-builder). The Clarity script host
 `https://scripts.clarity.ms` is also allowed explicitly because `script-src`
 overrides `default-src` for scripts. The policy does not trust the entire
-jsDelivr or unpkg host, and no `unsafe-eval` was added.
+jsDelivr or unpkg host. The current policy allows `unsafe-eval` only in
+`script-src` because this published GTM container currently attempts string
+evaluation; it is not added to `script-src-elem`.
 
-The separate DevTools issue reporting blocked string evaluation comes from
-`gtm.js?id=GTM-WRK43MWJ`. It cannot be fixed by changing `connect-src` or by
-adding script hosts. Google's guidance states that GTM Custom JavaScript variables
-may require `unsafe-eval`, but recommends replacing them with built-in variables
-or sandboxed Custom Templates instead. Inspect the remote GTM container and fix
-the specific tag/variable there; do not weaken CSP globally just to clear this
-warning.
+The best long-term cleanup is still to replace Custom JavaScript variables in
+`GTM-WRK43MWJ` with built-in variables or sandboxed Custom Templates, then
+remove `unsafe-eval` from the CSP. In the meantime, this compatibility change
+addresses the observed blocked-evaluation issue. It does not fix GTM tags that
+send a constant value or duplicate native `InitiateCheckout`/`Purchase` events;
+those tags must be corrected in the published GTM container itself.
 
 The latest production report also showed a frame request to
 `https://www.facebook.com` initiated from the GTM container and blocked by

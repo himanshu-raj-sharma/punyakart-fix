@@ -163,3 +163,98 @@ export function dispatchMetaInitiateCheckout(
     return false;
   }
 }
+
+export interface MetaAddToCartItem {
+  id: string;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+}
+
+function createMetaCartEventId(): string {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `atc_${crypto.randomUUID()}`;
+    }
+  } catch {
+    // Fallback below is sufficient for a browser-only AddToCart event.
+  }
+  return `atc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 14)}`;
+}
+
+/** Track an actual campaign cart addition using its live unit price and quantity. */
+export function dispatchMetaAddToCart(
+  item: MetaAddToCartItem,
+  fbq: MetaPixel | undefined,
+): boolean {
+  if (!browserTrackingHostAllowed()) return false;
+
+  const id = typeof item.id === 'string' ? item.id.trim() : '';
+  const name = typeof item.name === 'string' ? item.name.trim() : '';
+  const unitPrice = Number(item.unitPrice);
+  const quantity = Number(item.quantity);
+  const value = Math.round(unitPrice * quantity * 100) / 100;
+
+  if (
+    !id || id.length > 128 || /[\u0000-\u001f\u007f]/.test(id) ||
+    !name || name.length > 200 || /[\u0000-\u001f\u007f]/.test(name) ||
+    !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 1000 ||
+    !Number.isFinite(unitPrice) || unitPrice <= 0 || unitPrice > 10_000_000 ||
+    !Number.isFinite(value) || value <= 0
+  ) return false;
+
+  const eventId = createMetaCartEventId();
+  const contents = [{ id, quantity, item_price: Math.round(unitPrice * 100) / 100 }];
+  const params = {
+    value,
+    currency: 'INR',
+    content_ids: [id],
+    content_type: 'product',
+    content_name: name,
+    contents,
+  };
+  let dispatched = false;
+
+  // This legacy Pixel already receives the site's browser Purchase events.
+  // The CAPI-connected Pixel remains opt-in only; no consent is inferred here.
+  if (typeof fbq === 'function') {
+    try {
+      fbq('trackSingle', LEGACY_PIXEL_ID, 'AddToCart', params, { eventID: eventId });
+      dispatched = true;
+    } catch {
+      // A third-party tracking failure must never interrupt adding to cart.
+    }
+  }
+
+  // Also expose a clean ecommerce object for GTM/GA4 variables; no donor data.
+  try {
+    if (typeof window !== 'undefined') {
+      const browser = window as Window & { dataLayer?: Array<Record<string, unknown>> };
+      if (!Array.isArray(browser.dataLayer)) browser.dataLayer = [];
+      browser.dataLayer.push({
+        event: 'add_to_cart',
+        event_id: eventId,
+        ecommerce: {
+          currency: 'INR',
+          value,
+          items: [{ item_id: id, item_name: name, price: Math.round(unitPrice * 100) / 100, quantity }],
+        },
+        meta: {
+          event_name: 'AddToCart',
+          event_id: eventId,
+          value,
+          currency: 'INR',
+          content_ids: [id],
+          content_type: 'product',
+          content_name: name,
+          contents,
+        },
+      });
+      dispatched = true;
+    }
+  } catch {
+    // A blocked or missing GTM dataLayer must not interrupt cart behavior.
+  }
+
+  return dispatched;
+}
