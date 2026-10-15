@@ -2110,6 +2110,34 @@ res.type('application/xml').send(
 
 
 
+  app.get('/api/admin/payment-attempts', adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const rawLimit = Number(req.query.limit || 200);
+      const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(500, Math.floor(rawLimit))) : 200;
+      const attempts = await donations.listPaymentAttempts(limit);
+      res.json({
+        success: true,
+        attempts: attempts.map((row) => ({
+          id: row.id,
+          fullName: row.fullName,
+          email: row.email,
+          phone: row.phone,
+          amount: row.amount,
+          causeTitle: row.causeTitle,
+          source: row.source || '',
+          campaignId: row.campaignId || '',
+          status: row.status,
+          timestamp: row.timestamp,
+          razorpayOrderId: row.razorpayOrderId || '',
+          razorpaySubscriptionId: row.razorpaySubscriptionId || '',
+          failureReason: row.failureReason || '',
+        })),
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.get('/api/admin/donations/search', adminAuth, async (req: Request, res: Response, next: NextFunction) => {
 
     try {
