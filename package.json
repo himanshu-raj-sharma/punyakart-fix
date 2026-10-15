@@ -20,7 +20,8 @@
     "migrate": "node dist/migrate.cjs",
     "migrate:dev": "tsx backend/db/migrate.ts",
     "pack": "bash scripts/pack-hostinger.sh",
-    "pack:hostinger": "python scripts/pack_hostinger.py"
+    "pack:hostinger": "python scripts/pack_hostinger.py",
+    "migrate:payment-attempts": "tsx scripts/migrate-payment-attempts.ts"
   },
   "engines": {
     "node": ">=20"
