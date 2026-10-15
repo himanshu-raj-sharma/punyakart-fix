@@ -107,7 +107,8 @@ export class DonationService {
       );
     }
     const q = query.trim();
-    const matches = await this.repository.searchMatches(q, false);
+    const matches = (await this.repository.searchMatches(q, false))
+      .filter((row) => isCertificateEligible(row.status) || row.status === 'refunded');
     if (matches.length > 0) return matches;
 
     // Fallback: loose receipt match when fuzzy search misses FY-format IDs
@@ -222,7 +223,21 @@ export class DonationService {
     // moved by the explicit legacy-attempt migration.
     const existing = await this.repository.findById(id);
     if (existing) {
-      if (isCertificateEligible(existing.status)) return existing;
+      if (isCertificateEligible(existing.status)) {
+        // Repair the attempt ledger if the process restarted after the confirmed
+        // donation was persisted but before the attempt was marked finalized.
+        if (existing.paymentRef && this.paymentAttempts) {
+          const attempt = await this.paymentAttempts.findById(id);
+          if (attempt && attempt.status !== 'verified') {
+            await this.paymentAttempts.markVerified(id, {
+              verifiedAt: existing.verifiedAt || now.toISOString(),
+              receiptNumber: existing.receiptNumber || '',
+              paymentRef: existing.paymentRef,
+            });
+          }
+        }
+        return existing;
+      }
       if (existing.status === 'refunded') {
         throw new BusinessError('This donation was refunded and cannot be verified.', 'VALIDATION_ERROR');
       }
@@ -464,16 +479,20 @@ export class DonationService {
 
   async refundByRazorpayOrder(orderId: string, reason = 'Payment refunded'): Promise<StoredDonation | null> {
     const donation = await this.repository.findByRazorpayOrderId(orderId);
-    if (!donation) return null;
-    return this.markRefunded(donation.id, reason);
+    if (donation) return this.markRefunded(donation.id, reason);
+    const attempt = await this.paymentAttempts?.findByRazorpayOrderId(orderId);
+    if (!attempt) return null;
+    return this.paymentAttempts?.updateStatus(attempt.id, 'refunded', { failureReason: reason }) || null;
   }
 
   async refundByPaymentRef(paymentRef: string, reason = 'Payment refunded'): Promise<StoredDonation | null> {
     const donation = this.repository.findByPaymentRef
       ? await this.repository.findByPaymentRef(paymentRef)
       : (await this.repository.listAll()).find((row) => row.paymentRef === paymentRef);
-    if (!donation) return null;
-    return this.markRefunded(donation.id, reason);
+    if (donation) return this.markRefunded(donation.id, reason);
+    const attempt = await this.paymentAttempts?.findByPaymentRef(paymentRef);
+    if (!attempt) return null;
+    return this.paymentAttempts?.updateStatus(attempt.id, 'refunded', { failureReason: reason }) || null;
   }
 
   async getStatus(id: string): Promise<{ status: string }> {
