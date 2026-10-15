@@ -61,12 +61,18 @@ that every event is configured correctly.
 
 The website's native `InitiateCheckout` and verified `Purchase` handlers use
 the server-created donation amount, `INR`, and a stable donation event ID.
-The current source does not have a native `AddToCart` dispatch in its campaign
-cart handlers. Review the published GTM container's Meta tags and custom
-variables: it may be sending duplicate or constant-value `Purchase` and
-`InitiateCheckout` events. Use the actual dynamic amount, currency and event ID,
-and keep one deliberate sender per Pixel/event. The GTM container is managed
-outside this repository, so repository changes alone cannot correct its
+Campaign cart handlers now emit a browser `AddToCart` to the legacy Pixel using
+the live unit price multiplied by quantity, and push a matching ecommerce
+`add_to_cart` object into `dataLayer` for GTM/GA4. The CAPI worker still sends
+verified `Purchase` only; the Meta diagnostic about AddToCart CAPI coverage can
+remain because this integration does not send server-side AddToCart events.
+
+Review the published GTM container's Meta tags and custom variables: it may be
+sending duplicate or constant-value `Purchase` and `InitiateCheckout` events.
+Use the actual dynamic amount, currency and event ID, and keep one deliberate
+sender per Pixel/event. Disable any GTM `AddToCart` tag that targets the same
+legacy Pixel, or it may duplicate the native browser event. The GTM container is
+managed outside this repository, so repository changes alone cannot correct its
 published tag configuration.
 
 The application source loads GTM, Pixel and Clarity only on `punyakart.com` and
