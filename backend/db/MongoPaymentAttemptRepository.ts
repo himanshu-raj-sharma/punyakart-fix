@@ -99,12 +99,9 @@ export class MongoPaymentAttemptRepository implements PaymentAttemptRepository {
       const current = await collection.findOne({ _id: id });
       if (!current) return null;
       const { id: _id, status: _status, ...patch } = updates;
-      const nextStatus = ['verified', 'refunded'].includes(current.status)
-        ? current.status
-        : status === 'initiated' ? current.status : status;
-      if (['verified', 'refunded'].includes(current.status) && Object.keys(patch).length === 0) {
-        return fromDocument(current);
-      }
+      const terminal = ['verified', 'refunded'].includes(current.status);
+      const nextStatus = terminal ? current.status : status === 'initiated' ? current.status : status;
+      if (terminal && Object.keys(patch).length === 0) return fromDocument(current);
       const updated = await collection.findOneAndUpdate(
         { _id: id, status: current.status },
         { $set: { ...patch, status: nextStatus, attemptUpdatedAt: new Date().toISOString() } },
