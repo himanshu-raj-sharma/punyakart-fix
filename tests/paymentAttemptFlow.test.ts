@@ -269,3 +269,36 @@ test('admin donation list excludes initiated checkout attempts', async () => {
   await fixture.service.initiate(donor, NOW);
   assert.equal((await fixture.service.listAll()).length, 0);
 });
+
+test('a confirmed donation repairs a stale failed attempt marker without duplicating its receipt', async () => {
+  const fixture = makeFixture();
+  const attempt = await fixture.service.initiate(donor, NOW);
+  await fixture.service.attachRazorpayOrder(attempt.id, 'order_repair123');
+
+  const payment = {
+    id: 'pay_repair123',
+    order_id: 'order_repair123',
+    amount: 50100,
+    currency: 'INR',
+    status: 'captured',
+    captured: true,
+  };
+  const verified = await verifyCapturedDonation(
+    fixture.service, fixture.meta, (await fixture.service.findById(attempt.id))!, payment,
+  );
+  const receiptNumber = verified.receiptNumber;
+
+  // Simulate the split write partially succeeding: donations is durable but
+  // payment_attempts still has a retryable state after a transient DB error.
+  fixture.attempts.set(attempt.id, {
+    ...fixture.attempts.get(attempt.id)!,
+    status: 'failed',
+  });
+
+  const repaired = await fixture.service.verify(attempt.id, payment.id);
+  assert.equal(repaired.status, 'verified');
+  assert.equal(repaired.receiptNumber, receiptNumber);
+  assert.equal(fixture.donations.size, 1);
+  assert.equal(fixture.attempts.get(attempt.id)?.status, 'verified');
+  assert.equal(fixture.notifications(), 1, 'repair must not send a duplicate receipt notification');
+});
