@@ -129,10 +129,10 @@ settings and media backups; do not run `npm run test:backend` against production
 ## Historical v14 ZIP reference
 
 Historical archive name: **punyakart-hostinger-campaign-routes-v14.zip**. It does not contain this payment-ledger release candidate.
-This release includes the latest Navratri copy and hero styling, the shared
-Thursday/C5 campaign layout, fixed public header, shared public footer, and
-campaign-specific recent-donor popup. It retains traffic attribution, donation
-minimums, and Meta CAPI. Earlier archives are not overwritten.
+The historical v14 archive included the Navratri copy and hero styling, the
+shared Thursday/C5 campaign layout, fixed public header, shared public footer,
+and campaign-specific recent-donor popup. The v15 candidate must be packaged
+separately and tested before upload.
 
 ### Mobile layout, images and contribution tables in v11
 
