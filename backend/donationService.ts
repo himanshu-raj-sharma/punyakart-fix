@@ -440,22 +440,26 @@ export class DonationService {
     const subscriptionId = input.razorpaySubscriptionId.trim();
     if (!paymentId || !subscriptionId) return null;
 
-    const already = this.repository.findByPaymentRef
+    const existingDonation = this.repository.findByPaymentRef
       ? await this.repository.findByPaymentRef(paymentId)
-      : (await this.repository.listAll()).find((row) => row.paymentRef === paymentId);
+      : (await this.repository.listAll()).find((row) => row.paymentRef === paymentId) || null;
+    const already = existingDonation
+      || (await this.paymentAttempts?.findByPaymentRef(paymentId))
+      || null;
     if (already) {
       if (already.razorpaySubscriptionId !== subscriptionId
         || (input.amountPaise !== undefined && input.amountPaise !== already.amount * 100)) {
         throw new BusinessError('Recurring payment does not match this subscription.', 'VALIDATION_ERROR');
       }
-      if (['verified', 'completed', 'failed', 'refunded'].includes(already.status)) return already;
+      if (['verified', 'completed', 'refunded'].includes(already.status)) return already;
+      // A retry may capture a subscription payment previously recorded as failed.
       return this.verify(already.id, paymentId);
     }
 
     const localSub = await this._subscriptions.findByRazorpaySubscriptionId(subscriptionId);
     const seed =
-      (localSub?.seedDonationId ? await this.repository.findById(localSub.seedDonationId) : null) ||
-      (await this.repository.findByRazorpaySubscriptionId(subscriptionId));
+      (localSub?.seedDonationId ? await this.findById(localSub.seedDonationId) : null) ||
+      (await this.findByRazorpaySubscriptionId(subscriptionId));
 
     if (!localSub && !seed) {
       logger.warn({ subscriptionId, paymentId }, 'Subscription charge with no local seed donation');
