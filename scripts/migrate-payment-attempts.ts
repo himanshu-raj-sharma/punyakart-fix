@@ -53,8 +53,16 @@ async function main(): Promise<void> {
     return acc;
   }, {});
 
+  let databaseHost = 'unknown';
+  try {
+    databaseHost = new URL(String(process.env.DATABASE_URL || '')).hostname || 'unknown';
+  } catch {
+    // Never print the connection string or credentials.
+  }
+
   console.log(JSON.stringify({
     mode: APPLY ? 'APPLY' : 'DRY_RUN',
+    databaseHost,
     database: db.databaseName,
     collection: 'donations',
     pendingRows: pending.length,
