@@ -216,7 +216,7 @@ test('a failed payment attempt keeps the checkout reconcilable for a later captu
     new Date(NOW.getTime() + 1000),
   );
   assert.equal(failed?.id, attempt.id);
-  assert.equal(fixture.attempts.get(attempt.id)?.status, 'initiated');
+  assert.equal(fixture.attempts.get(attempt.id)?.status, 'initiated', 'test adapter records failure details without terminating the order');
   assert.equal(fixture.failureNotes.get(attempt.id), 'Synthetic customer timeout');
 
   const payment = {
