@@ -138,6 +138,21 @@ export interface AdminPaymentAttempt {
   failureReason: string;
 }
 
+export interface AdminPaymentSyncDiagnostics {
+  checkedAt: string;
+  databaseName: string;
+  databaseHost: string;
+  donations: {
+    total: number;
+    byStatus: Array<{ status: string; count: number; newestTimestamp: string; oldestTimestamp: string }>;
+  };
+  paymentAttempts: {
+    collectionExists: boolean;
+    total: number;
+    byStatus: Array<{ status: string; count: number; newestTimestamp: string; oldestTimestamp: string }>;
+  };
+}
+
 export interface AdminSubscription {
   id: string;
   donorName: string;
