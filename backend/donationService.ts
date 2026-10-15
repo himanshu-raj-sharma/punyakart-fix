@@ -304,12 +304,14 @@ export class DonationService {
 
     const receiptNumber = (attempt.receiptNumber || '').trim() || await this.repository.nextReceiptNumber(now);
     const verifiedAt = attempt.verifiedAt || now.toISOString();
+    const refundObserved = (attempt.failureReason || '').startsWith('Refund event observed:');
     const candidate: StoredDonation = {
       ...attempt,
       status: 'verified',
       verifiedAt,
       receiptNumber,
       paymentRef,
+      ...(refundObserved ? { failureReason: attempt.failureReason } : { failureReason: undefined }),
     };
 
     // Insert-only by donation ID, order ID, and payment ID makes delayed or
@@ -325,6 +327,15 @@ export class DonationService {
       receiptNumber: saved.receiptNumber || receiptNumber,
       paymentRef,
     });
+    if (refundObserved) {
+      // If a refund webhook arrived before the capture webhook, retain the
+      // captured transaction in the donation ledger but do not issue email/CAPI.
+      const refunded = await this.repository.updateStatus(saved.id, 'refunded', {
+        failureReason: attempt.failureReason,
+      });
+      if (!refunded) throw new BusinessError('Captured refund record could not be finalized.', 'PERSISTENCE_ERROR');
+      return refunded;
+    }
     if (resolution.transitioned) await this.afterVerified(saved, now);
     return saved;
   }
@@ -503,7 +514,9 @@ export class DonationService {
     if (donation) return this.markRefunded(donation.id, reason);
     const attempt = await this.paymentAttempts?.findByRazorpayOrderId(orderId);
     if (!attempt) return null;
-    return this.paymentAttempts?.updateStatus(attempt.id, 'refunded', { failureReason: reason }) || null;
+    // A refund notification can precede payment.captured. Keep the attempt
+    // reconcilable; after capture is confirmed it will enter donations as refunded.
+    return this.paymentAttempts?.recordRefundByOrder(orderId, reason) || null;
   }
 
   async refundByPaymentRef(paymentRef: string, reason = 'Payment refunded'): Promise<StoredDonation | null> {
@@ -513,7 +526,12 @@ export class DonationService {
     if (donation) return this.markRefunded(donation.id, reason);
     const attempt = await this.paymentAttempts?.findByPaymentRef(paymentRef);
     if (!attempt) return null;
-    return this.paymentAttempts?.updateStatus(attempt.id, 'refunded', { failureReason: reason }) || null;
+    if (attempt.razorpayOrderId) {
+      return this.paymentAttempts?.recordRefundByOrder(attempt.razorpayOrderId, reason) || null;
+    }
+    return this.paymentAttempts?.updateStatus(attempt.id, attempt.status, {
+      failureReason: `Refund event observed: ${reason.slice(0, 400)}`,
+    }) || null;
   }
 
   async getStatus(id: string): Promise<{ status: string }> {
