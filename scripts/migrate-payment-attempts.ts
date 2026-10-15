@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { closeMongo, getMongoDb } from '../backend/db/mongo.js';
 import { MongoPaymentAttemptRepository } from '../backend/db/MongoPaymentAttemptRepository.js';
 import type { StoredDonation } from '../backend/types.js';
@@ -36,7 +37,6 @@ async function main(): Promise<void> {
   const db = await getMongoDb();
   const donations = db.collection<Record<string, unknown>>('donations');
   const attempts = new MongoPaymentAttemptRepository();
-  await attempts.ensureIndexes();
 
   const pending = await donations.find({
     status: { $in: [...PENDING_STATUSES] },
@@ -62,6 +62,7 @@ async function main(): Promise<void> {
     return;
   }
 
+  await attempts.ensureIndexes();
   let moved = 0;
   for (const document of pending) {
     const attempt = fromLegacyDocument(document);
