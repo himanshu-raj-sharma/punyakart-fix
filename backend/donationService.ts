@@ -11,6 +11,7 @@ import { validateCertificateForm } from './validation/certificateFormSchema';
 import { timingSafeEqualText } from './security';
 import logger from './logger';
 import type { MetaAttribution } from './metaConversions.js';
+import type { PaymentAttemptRepository } from './db/PaymentAttemptRepository.js';
 import { recurringMetaAttribution } from './metaPaymentTracking.js';
 import { sanitizeTrafficAttribution } from '../frontend/src/utils/trafficAttribution.js';
 import { inheritedTrafficAttribution } from './trafficAttribution.js';
@@ -53,6 +54,7 @@ export class DonationService {
     private readonly _subscriptions: SubscriptionService,
     private readonly gatewayLookup?: GatewayPaymentFinder,
     private readonly notifyAfterVerification: typeof notifyDonorAfterVerification = notifyDonorAfterVerification,
+    private readonly paymentAttempts?: PaymentAttemptRepository,
   ) {}
 
   async listRecent(limit = 30, source?: string): Promise<StoredDonation[]> {
@@ -64,8 +66,37 @@ export class DonationService {
     return filterDonationsBySource(await this.repository.listEligible(), source);
   }
 
+  /** Admin donor reports show only confirmed donations, never checkout attempts. */
   async listAll(source?: string): Promise<StoredDonation[]> {
-    return filterDonationsBySource(await this.repository.listAll(), source);
+    const records = await this.repository.listAll();
+    return filterDonationsBySource(
+      records.filter((row) => isCertificateEligible(row.status) || row.status === 'refunded'),
+      source,
+    );
+  }
+
+  async listPendingForReconciliation(limit = 25, olderThan = new Date(Date.now() - 60_000)): Promise<StoredDonation[]> {
+    const [legacy, attempts] = await Promise.all([
+      this.repository.listPendingForReconciliation
+        ? this.repository.listPendingForReconciliation(limit, olderThan)
+        : Promise.resolve([]),
+      this.paymentAttempts?.listPendingForReconciliation(limit, olderThan) || Promise.resolve([]),
+    ]);
+    const byId = new Map<string, StoredDonation>();
+    for (const row of [...legacy, ...attempts]) {
+      if (row.status === 'initiated' || row.status === 'pending_verification' || row.status === 'failed') {
+        byId.set(row.id, row);
+      }
+    }
+    return [...byId.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp)).slice(0, Math.max(0, limit));
+  }
+
+  async markReconciliationAttempt(id: string, now = new Date()): Promise<void> {
+    if (await this.repository.findById(id)) {
+      await this.repository.markReconciliationAttempt?.(id, now);
+      return;
+    }
+    await this.paymentAttempts?.markReconciliationAttempt(id, now);
   }
 
   async searchMatches(query: string): Promise<StoredDonation[]> {
@@ -118,29 +149,32 @@ export class DonationService {
       ...(trafficAttribution ? { trafficAttribution } : {}),
     };
 
-    return this.repository.initiate(donation);
+    return this.paymentAttempts ? this.paymentAttempts.create(donation) : this.repository.initiate(donation);
+  }
+
+  private async updateCheckoutRecord(id: string, updates: Partial<StoredDonation>): Promise<StoredDonation> {
+    const existingDonation = await this.repository.findById(id);
+    const updated = existingDonation
+      ? await this.repository.updateStatus(id, existingDonation.status, updates)
+      : await this.paymentAttempts?.updateStatus(id, 'initiated', updates);
+    if (!updated) throw new BusinessError('Donation/payment attempt not found', 'NOT_FOUND');
+    return updated;
   }
 
   async attachRazorpayOrder(id: string, razorpayOrderId: string): Promise<StoredDonation> {
-    const updated = await this.repository.updateStatus(id, 'initiated', { razorpayOrderId });
-    if (!updated) throw new BusinessError('Donation not found', 'NOT_FOUND');
-    return updated;
+    return this.updateCheckoutRecord(id, { razorpayOrderId });
   }
 
   async attachRazorpayQr(id: string, razorpayQrId: string): Promise<StoredDonation> {
-    const updated = await this.repository.updateStatus(id, 'initiated', { razorpayQrId });
-    if (!updated) throw new BusinessError('Donation not found', 'NOT_FOUND');
-    return updated;
+    return this.updateCheckoutRecord(id, { razorpayQrId });
   }
 
   async attachRazorpaySubscription(id: string, razorpaySubscriptionId: string): Promise<StoredDonation> {
-    const updated = await this.repository.updateStatus(id, 'initiated', { razorpaySubscriptionId });
-    if (!updated) throw new BusinessError('Donation not found', 'NOT_FOUND');
-    return updated;
+    return this.updateCheckoutRecord(id, { razorpaySubscriptionId });
   }
 
   async findById(id: string): Promise<StoredDonation | null> {
-    return this.repository.findById(id);
+    return (await this.repository.findById(id)) || (await this.paymentAttempts?.findById(id)) || null;
   }
 
   async findByPhone(phone: string): Promise<StoredDonation[]> {
@@ -152,12 +186,15 @@ export class DonationService {
   }
 
   async markFailed(id: string, reason: string): Promise<StoredDonation> {
-    const existing = await this.repository.findById(id);
-    if (!existing) throw new BusinessError('Donation not found', 'NOT_FOUND');
+    const existingDonation = await this.repository.findById(id);
+    const existing = existingDonation || (await this.paymentAttempts?.findById(id)) || null;
+    if (!existing) throw new BusinessError('Donation/payment attempt not found', 'NOT_FOUND');
     if (existing.status === 'verified' || existing.status === 'refunded') return existing;
 
-    const updated = await this.repository.updateStatus(id, 'failed', { failureReason: reason });
-    if (!updated) throw new BusinessError('Failed to update donation', 'PERSISTENCE_ERROR');
+    const updated = existingDonation
+      ? await this.repository.updateStatus(id, 'failed', { failureReason: reason })
+      : await this.paymentAttempts?.updateStatus(id, 'failed', { failureReason: reason });
+    if (!updated) throw new BusinessError('Failed to update payment status', 'PERSISTENCE_ERROR');
     return updated;
   }
 
