@@ -459,7 +459,21 @@ async function syncPendingPaymentForDonation(
 
   const donation = await donations.findById(donationId);
 
-  if (!donation || !['initiated', 'pending_verification', 'failed'].includes(donation.status)) return;
+  if (!donation) return;
+
+  // If the confirmed donation was written but the separate attempt finalization
+  // failed, replay verification only to repair that ledger marker. DonationService
+  // is idempotent for an already-verified record and does not issue a second receipt.
+  if (['verified', 'completed'].includes(donation.status) && donation.paymentRef) {
+    try {
+      await donations.verify(donation.id, donation.paymentRef);
+    } catch (err) {
+      logger.warn({ err, donationId }, 'Payment-attempt finalization repair deferred');
+    }
+    return;
+  }
+
+  if (!['initiated', 'pending_verification', 'failed'].includes(donation.status)) return;
 
 
 
