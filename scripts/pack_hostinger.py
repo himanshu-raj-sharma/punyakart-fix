@@ -21,7 +21,7 @@ ROOT_FILES = {
     "tsconfig.json", "vite.config.ts", ".npmrc", "README.md",
     "DEPLOYMENT.md", "META_CAPI.md", "TRAFFIC_ATTRIBUTION.md", "SECURITY.md", "LICENSE",
 }
-SCRIPTS = {"scripts/pack-hostinger.sh", "scripts/pack_hostinger.py"}
+SCRIPTS = {"scripts/pack-hostinger.sh", "scripts/pack_hostinger.py", "scripts/migrate-payment-attempts.ts"}
 ASSETS = {
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".ico",
     ".woff", ".woff2", ".ttf", ".otf", ".mp4", ".webm", ".mp3", ".ogg",
@@ -184,6 +184,8 @@ def validate_archive(archive, expected):
             "tests/securityBoundary.test.ts",
             "backend/metaConversions.ts", "backend/metaPaymentTracking.ts", "backend/ipAddress.ts",
             "backend/db/MongoMetaConversionRepository.ts", "frontend/src/utils/metaTracking.ts",
+            "backend/db/PaymentAttemptRepository.ts", "backend/db/MongoPaymentAttemptRepository.ts",
+            "tests/paymentAttemptFlow.test.ts", "scripts/migrate-payment-attempts.ts",
             "frontend/src/utils/donationSource.ts", "frontend/src/utils/donationCurrency.ts",
             "backend/adminDonation.ts", "backend/trafficAttribution.ts",
             "frontend/src/utils/trafficAttribution.ts", "frontend/src/utils/trafficAttributionSession.ts",
@@ -314,6 +316,8 @@ def main():
             print("Skipped CSP HTTP-listener fixture; no local server will be started.")
         run_node(node, "isolated CSP tests", clis["tsx"], "--test", *csp_options,
                   "tests/contentSecurityPolicy.test.ts")
+        run_node(node, "isolated payment attempt and reconciliation tests", clis["tsx"], "--test",
+                 "tests/paymentAttemptFlow.test.ts")
         run_node(node, "isolated donation amount tests", clis["tsx"], "--test",
                  "tests/donationAmounts.test.ts")
         run_node(node, "isolated Meta CAPI, consent and payment-flow tests", clis["tsx"], "--test",
