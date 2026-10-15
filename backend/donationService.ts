@@ -75,6 +75,23 @@ export class DonationService {
     );
   }
 
+  async listPaymentAttempts(limit = 200): Promise<StoredDonation[]> {
+    const safeLimit = Math.max(0, Math.min(500, Math.floor(limit)));
+    if (!safeLimit) return [];
+    const [legacyRows, separateRows] = await Promise.all([
+      this.repository.listAll(),
+      this.paymentAttempts?.listAdminPending(safeLimit) || Promise.resolve([]),
+    ]);
+    const rows = new Map<string, StoredDonation>();
+    for (const row of legacyRows) {
+      if (['initiated', 'pending_verification', 'failed'].includes(row.status)) rows.set(row.id, row);
+    }
+    for (const row of separateRows) rows.set(row.id, row);
+    return [...rows.values()]
+      .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+      .slice(0, safeLimit);
+  }
+
   async listPendingForReconciliation(limit = 25, olderThan = new Date(Date.now() - 60_000)): Promise<StoredDonation[]> {
     const [legacy, attempts] = await Promise.all([
       this.repository.listPendingForReconciliation
