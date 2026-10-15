@@ -10,6 +10,7 @@ import type { CampaignContent } from '../../types/campaignCms';
 import { DONATION_AMOUNT_ERROR, isValidDonationAmount, MAX_DONATION_AMOUNT, MIN_DONATION_AMOUNT, parseDonationAmount } from '../../constants/donation';
 import { allocationMaterialsFromProducts, type AllocationMaterial } from './WhereYourMoneyGoes';
 import { resolveCampaignQuantityChange } from '../../utils/campaignQuantity.js';
+import { dispatchMetaAddToCart } from '../../utils/metaTracking';
 
 interface CauseContributionSectionProps {
   onDonateAmount: (amount: number, currency: Currency) => void;
@@ -155,6 +156,14 @@ export const CauseContributionSection: React.FC<CauseContributionSectionProps> =
     );
     setStepperValues((prev) => ({ ...prev, [card.id]: change.nextStepperQuantity }));
     if (change.target === 'cart') {
+      if (change.delta > 0) {
+        const fbq = typeof window === 'undefined'
+          ? undefined
+          : (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
+        dispatchMetaAddToCart({
+          id: card.id, name: card.title, unitPrice: card.price, quantity: change.delta,
+        }, fbq);
+      }
       onUpdateCartQty(toProductItem(card), change.delta);
     }
   };
@@ -163,6 +172,12 @@ export const CauseContributionSection: React.FC<CauseContributionSectionProps> =
   const handleAddToCart = (card: ImpactCard) => {
     if ((quantities[card.id] || 0) > 0) return;
     const addCount = stepperValues[card.id] || 1;
+    const fbq = typeof window === 'undefined'
+      ? undefined
+      : (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
+    dispatchMetaAddToCart({
+      id: card.id, name: card.title, unitPrice: card.price, quantity: addCount,
+    }, fbq);
     onUpdateCartQty(toProductItem(card), addCount);
     setStepperValues((prev) => ({ ...prev, [card.id]: addCount }));
     setActiveTab(card.id);
